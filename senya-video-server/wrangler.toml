@@ -1,0 +1,8 @@
+name = "senya-video-server"
+account_id = "10bbfdc0897bf4e826451e6e6054ffff"  # Your actual account ID
+workers_dev = true
+main = "src/index.js"
+
+[[r2_buckets]]
+binding = "MY_R2_BUCKET"
+bucket_name = "senya-videos"

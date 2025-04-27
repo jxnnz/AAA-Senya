@@ -1,0 +1,13 @@
+{
+	"name": "senya-video-server",
+	"version": "0.0.0",
+	"private": true,
+	"scripts": {
+		"deploy": "wrangler deploy",
+		"dev": "wrangler dev --test-scheduled",
+		"start": "wrangler dev --test-scheduled"
+	},
+	"devDependencies": {
+		"wrangler": "^4.10.0"
+	}
+}
