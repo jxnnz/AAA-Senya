@@ -150,16 +150,10 @@ class _AdminSignsTabState extends State<AdminSignsTab> {
           final lessonsData = await _apiService.get(
             '/admin/units/${unit.id}/lessons',
           );
-          if (lessonsData != null) {
-            final List<LessonModel> unitLessons =
-                (lessonsData as List)
-                    .map((lessonJson) => LessonModel.fromJson(lessonJson))
-                    .toList();
-            allLessons.addAll(unitLessons);
-          }
+          debugPrint('Lessons data: $lessonsData');
+          // Rest of the code
         } catch (e) {
-          debugPrint('Error loading lessons for unit ${unit.id}: $e');
-          // Continue with other units
+          debugPrint('Error loading lessons: $e');
         }
       }
 
@@ -174,7 +168,7 @@ class _AdminSignsTabState extends State<AdminSignsTab> {
       for (var lesson in _lessons) {
         try {
           final signsData = await _apiService.get(
-            '/admin/signs/lesson/${lesson.id}',
+            '/admin/lessons/unit/${lesson.unitId}',
           );
           if (signsData != null) {
             final List<SignModel> lessonSigns =

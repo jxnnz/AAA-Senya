@@ -25,22 +25,6 @@ async def get_lessons_by_unit(
     lessons = result.scalars().all()
     return lessons
 
-@router.get("/admin/units/{unit_id}/lessons", response_model=List[LessonSchema])
-async def get_lessons_for_unit(
-    unit_id: int,
-    include_archived: bool = Query(False),
-    db: AsyncSession = Depends(get_db),
-    admin_user = Depends(get_admin_user)
-):
-    query = select(Lesson).where(Lesson.unit_id == unit_id).order_by(Lesson.order_index)
-    
-    if not include_archived:
-        query = query.where(Lesson.archived == False)
-    
-    result = await db.execute(query)
-    lessons = result.scalars().all()
-    return lessons
-
 
 @router.post("/", response_model=LessonSchema, status_code=status.HTTP_201_CREATED)
 async def create_lesson(
