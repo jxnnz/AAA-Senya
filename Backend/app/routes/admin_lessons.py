@@ -103,3 +103,15 @@ async def archive_lesson(
     await db.commit()
     await db.refresh(lesson)
     return lesson
+
+@router.get("/", response_model=List[LessonSchema])
+async def get_all_lessons(
+    include_archived: bool = Query(False, description="Include archived lessons"),
+    db: AsyncSession = Depends(get_db),
+    admin_user = Depends(get_admin_user)
+):
+    query = select(Lesson).order_by(Lesson.unit_id, Lesson.order_index)
+    if not include_archived:
+        query = query.where(Lesson.archived == False)
+    result = await db.execute(query)
+    return result.scalars().all()

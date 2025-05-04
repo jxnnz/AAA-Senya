@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'dart:async';
-import '../api_routes/auth-repository.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 class LogoScreen extends StatefulWidget {
   const LogoScreen({super.key});
@@ -10,60 +10,28 @@ class LogoScreen extends StatefulWidget {
 }
 
 class _LogoScreenState extends State<LogoScreen> {
-  final _authRepository = AuthRepository();
-  bool _hasNavigated = false;
-
   @override
   void initState() {
     super.initState();
-    // Show logo for minimum of 3 seconds, then check auth and navigate
-    Timer(const Duration(seconds: 3), () {
-      if (mounted && !_hasNavigated) {
-        _checkAuthAndNavigate();
-      }
-    });
+    _checkLoginStatus();
   }
 
-  Future<void> _checkAuthAndNavigate() async {
-    if (_hasNavigated) return;
-    _hasNavigated = true;
+  Future<void> _checkLoginStatus() async {
+    final prefs = await SharedPreferences.getInstance();
+    final token = prefs.getString('access_token');
+    final role = prefs.getString('user_role');
 
-    try {
-      // Get authentication token
-      final token = await _authRepository.getToken();
+    // Delay to show splash
+    await Future.delayed(const Duration(seconds: 3));
 
-      if (!mounted) return;
-
-      if (token == null) {
-        // No token, go to welcome screen
-        Navigator.of(context).pushReplacementNamed('/welcome');
-        return;
-      }
-
-      // We have a token, check user role
-      final result = await _authRepository.checkAuthStatus();
-
-      if (!mounted) return;
-
-      if (result == null) {
-        // Token is invalid, go to welcome screen
-        Navigator.of(context).pushReplacementNamed('/welcome');
-        return;
-      }
-
-      final user = result['user'];
-      if (user != null && user.role == 'admin') {
-        // Admin user goes to admin screen
-        Navigator.of(context).pushReplacementNamed('/admin', arguments: user);
+    if (token != null && token.isNotEmpty) {
+      if (role == 'admin') {
+        Navigator.pushReplacementNamed(context, '/admin');
       } else {
-        // Regular user goes to home screen
-        Navigator.of(context).pushReplacementNamed('/home', arguments: user);
+        Navigator.pushReplacementNamed(context, '/home');
       }
-    } catch (e) {
-      print('Error during authentication check: $e');
-      if (mounted) {
-        Navigator.of(context).pushReplacementNamed('/welcome');
-      }
+    } else {
+      Navigator.pushReplacementNamed(context, '/welcome');
     }
   }
 

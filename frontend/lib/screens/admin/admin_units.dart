@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../themes/color.dart';
-import '../../api_routes/api_service.dart';
+import '../../services/admin_units_service.dart';
 
 class AdminUnitsTab extends StatefulWidget {
   const AdminUnitsTab({super.key});
@@ -14,16 +14,12 @@ class UnitModel {
   String title;
   String? description;
   int orderIndex;
-  String status;
-  bool archived;
 
   UnitModel({
     required this.id,
     required this.title,
     required this.orderIndex,
     this.description,
-    this.status = 'active',
-    this.archived = false,
   });
 
   factory UnitModel.fromJson(Map<String, dynamic> json) {
@@ -32,20 +28,7 @@ class UnitModel {
       title: json['title'],
       description: json['description'],
       orderIndex: json['order_index'],
-      status: json['status'] ?? 'active',
-      archived: json['archived'] ?? false,
     );
-  }
-
-  Map<String, dynamic> toJson() {
-    return {
-      'id': id,
-      'title': title,
-      'description': description,
-      'order_index': orderIndex,
-      'status': status,
-      'archived': archived,
-    };
   }
 }
 
@@ -54,187 +37,51 @@ class _AdminUnitsTabState extends State<AdminUnitsTab> {
   final TextEditingController _unitNameController = TextEditingController();
   final TextEditingController _descriptionController = TextEditingController();
   final GlobalKey<FormState> _formKey = GlobalKey<FormState>();
+  final AdminUnitService _unitService = AdminUnitService();
 
   List<UnitModel> units = [];
-  bool _isLoading = true;
-  bool _hasError = false;
-  String _errorMessage = '';
-  final ApiService _apiService = ApiService();
-  bool _isEditing = false;
   int? _editingUnitId;
 
   @override
   void initState() {
     super.initState();
-    _initializeAndFetch();
-  }
-
-  Future<void> _initializeAndFetch() async {
-    setState(() {
-      _isLoading = true;
-      _hasError = false;
-    });
-
-    try {
-      // Make sure we're authenticated before making any requests
-      bool isAuthenticated = await _apiService.ensureAuthenticated();
-      if (!isAuthenticated) {
-        setState(() {
-          _hasError = true;
-          _errorMessage = 'Authentication failed. Please login again.';
-          _isLoading = false;
-        });
-        _showError(_errorMessage);
-        // Redirect to login if needed
-        // Navigator.pushReplacementNamed(context, '/login');
-        return;
-      }
-
-      await fetchUnits();
-    } catch (e) {
-      setState(() {
-        _hasError = true;
-        _errorMessage = 'Error initializing: $e';
-        _isLoading = false;
-      });
-      _showError(_errorMessage);
-    }
+    fetchUnits();
   }
 
   Future<void> fetchUnits() async {
-    setState(() {
-      _isLoading = true;
-      _hasError = false;
-    });
-
     try {
-      final data = await _apiService.get('/admin/units/');
+      final data = await _unitService.fetchUnits();
       setState(() {
-        units = List<UnitModel>.from(data.map((u) => UnitModel.fromJson(u)));
-        _isLoading = false;
+        units = data.map((u) => UnitModel.fromJson(u)).toList();
       });
     } catch (e) {
-      setState(() {
-        _hasError = true;
-        _errorMessage = 'Failed to fetch units: $e';
-        _isLoading = false;
-      });
-      _showError(_errorMessage);
+      debugPrint('Failed to fetch units: $e');
     }
   }
 
-  void _editUnit(UnitModel unit) {
-    setState(() {
-      _isEditing = true;
-      _editingUnitId = unit.id;
-      _unitNumberController.text = unit.orderIndex.toString();
-      _unitNameController.text = unit.title;
-      _descriptionController.text = unit.description ?? '';
-    });
-
-    // Scroll to the form
-    if (_formKey.currentContext != null) {
-      Scrollable.ensureVisible(
-        _formKey.currentContext!,
-        duration: const Duration(milliseconds: 300),
-      );
-    }
-  }
-
-  Future<void> _addUnit() async {
+  Future<void> _submitUnit() async {
     if (!_formKey.currentState!.validate()) return;
 
     final title = _unitNameController.text.trim();
+    final orderIndex = int.tryParse(_unitNumberController.text.trim()) ?? 0;
     final description = _descriptionController.text.trim();
-    final orderIndex =
-        int.tryParse(_unitNumberController.text.trim()) ?? units.length;
 
-    setState(() => _isLoading = true);
+    final res = await _unitService.submitUnit(
+      title: title,
+      description: description,
+      orderIndex: orderIndex,
+      editingUnitId: _editingUnitId,
+    );
 
-    try {
-      Map<String, String> formData = {
-        'title': title,
-        'description': description,
-        'order_index': orderIndex.toString(),
-      };
+    debugPrint('Submit response: ${res.statusCode}');
+    debugPrint('Response body: ${res.body}');
 
-      await _apiService.postForm('/admin/units/', formData);
-
-      _unitNumberController.clear();
-      _unitNameController.clear();
-      _descriptionController.clear();
-
-      // Refresh the unit list
-      await fetchUnits();
-
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text('Unit added successfully')));
-    } catch (e) {
-      setState(() => _isLoading = false);
-      _showError('Error adding unit: $e');
-    }
-  }
-
-  Future<void> _saveUnit() async {
-    if (!_formKey.currentState!.validate()) return;
-
-    final title = _unitNameController.text.trim();
-    final description = _descriptionController.text.trim();
-    final orderIndex =
-        int.tryParse(_unitNumberController.text.trim()) ?? units.length;
-
-    setState(() => _isLoading = true);
-
-    try {
-      // Create complete form data with all required fields
-      Map<String, String> formData = {
-        'title': title,
-        'description': description,
-        'order_index': orderIndex.toString(),
-        'status': 'active', // Default status
-      };
-
-      // Find current status if editing
-      if (_isEditing && _editingUnitId != null) {
-        final existingUnit = units.firstWhere(
-          (u) => u.id == _editingUnitId,
-          orElse: () => UnitModel(id: -1, title: '', orderIndex: 0),
-        );
-        if (existingUnit.id != -1) {
-          formData['status'] = existingUnit.status;
-        }
-      }
-
-      if (_isEditing && _editingUnitId != null) {
-        // Update existing unit
-        await _apiService.put('/admin/units/${_editingUnitId}/', formData);
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Unit updated successfully')),
-        );
-      } else {
-        // Add new unit
-        await _apiService.postForm('/admin/units/', formData);
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Unit added successfully')),
-        );
-      }
-
-      // Reset form and state
-      _unitNumberController.clear();
-      _unitNameController.clear();
-      _descriptionController.clear();
-      setState(() {
-        _isEditing = false;
-        _editingUnitId = null;
-      });
-
-      // Refresh the unit list
-      await fetchUnits();
-    } catch (e) {
-      setState(() => _isLoading = false);
-      _showError(
-        _isEditing ? 'Error updating unit: $e' : 'Error adding unit: $e',
+    if (res.statusCode == 200 || res.statusCode == 201) {
+      _resetForm();
+      fetchUnits();
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Failed to save unit. Try again.')),
       );
     }
   }
@@ -245,9 +92,7 @@ class _AdminUnitsTabState extends State<AdminUnitsTab> {
       builder:
           (_) => AlertDialog(
             title: const Text('Confirm Delete'),
-            content: const Text(
-              'Are you sure you want to delete this unit? This will also archive all related lessons and signs.',
-            ),
+            content: const Text('Are you sure you want to delete this unit?'),
             actions: [
               TextButton(
                 onPressed: () => Navigator.pop(context, false),
@@ -262,25 +107,27 @@ class _AdminUnitsTabState extends State<AdminUnitsTab> {
     );
 
     if (confirm == true) {
-      setState(() => _isLoading = true);
-
-      try {
-        await _apiService.patch('/admin/units/$id/archive');
-        await fetchUnits();
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Unit archived successfully')),
-        );
-      } catch (e) {
-        setState(() => _isLoading = false);
-        _showError('Error archiving unit: $e');
+      final res = await _unitService.deleteUnit(id);
+      if (res.statusCode == 200) {
+        fetchUnits();
       }
     }
   }
 
-  void _showError(String message) {
-    ScaffoldMessenger.of(
-      context,
-    ).showSnackBar(SnackBar(content: Text(message)));
+  void _editUnit(UnitModel unit) {
+    setState(() {
+      _unitNumberController.text = unit.orderIndex.toString();
+      _unitNameController.text = unit.title;
+      _descriptionController.text = unit.description ?? '';
+      _editingUnitId = unit.id;
+    });
+  }
+
+  void _resetForm() {
+    _unitNumberController.clear();
+    _unitNameController.clear();
+    _descriptionController.clear();
+    _editingUnitId = null;
   }
 
   @override
@@ -290,12 +137,13 @@ class _AdminUnitsTabState extends State<AdminUnitsTab> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text(
-            'Add New Unit',
-            style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
+          Text(
+            _editingUnitId != null ? 'Edit Unit' : 'Add New Unit',
+            style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
           ),
           const SizedBox(height: 20),
 
+          // --------- FORM FIELDS ---------
           Form(
             key: _formKey,
             child: Column(
@@ -310,8 +158,8 @@ class _AdminUnitsTabState extends State<AdminUnitsTab> {
                         decoration: _inputDecoration('Unit No.'),
                         validator:
                             (value) =>
-                                (value == null || value.isEmpty)
-                                    ? 'Enter unit number'
+                                value == null || value.isEmpty
+                                    ? 'Required'
                                     : null,
                       ),
                     ),
@@ -323,8 +171,8 @@ class _AdminUnitsTabState extends State<AdminUnitsTab> {
                         decoration: _inputDecoration('Unit Name'),
                         validator:
                             (value) =>
-                                (value == null || value.isEmpty)
-                                    ? 'Enter unit name'
+                                value == null || value.isEmpty
+                                    ? 'Required'
                                     : null,
                       ),
                     ),
@@ -337,36 +185,17 @@ class _AdminUnitsTabState extends State<AdminUnitsTab> {
                   decoration: _inputDecoration('Description'),
                 ),
                 const SizedBox(height: 12),
+
+                // --------- BUTTONS ---------
                 Row(
                   children: [
-                    if (_isEditing)
-                      TextButton.icon(
-                        onPressed: () {
-                          setState(() {
-                            _isEditing = false;
-                            _editingUnitId = null;
-                            _unitNumberController.clear();
-                            _unitNameController.clear();
-                            _descriptionController.clear();
-                          });
-                        },
-                        icon: const Icon(Icons.cancel),
-                        label: const Text('Cancel'),
-                        style: TextButton.styleFrom(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 20,
-                            vertical: 18,
-                          ),
-                        ),
-                      ),
-                    const SizedBox(width: 12),
                     ElevatedButton.icon(
-                      onPressed: _isLoading ? null : _saveUnit,
+                      onPressed: _submitUnit,
                       icon: CircleAvatar(
                         backgroundColor: Colors.white,
                         radius: 12,
                         child: Icon(
-                          _isEditing ? Icons.save : Icons.add,
+                          Icons.add,
                           color: AppColors.primaryColor,
                           size: 18,
                         ),
@@ -374,10 +203,11 @@ class _AdminUnitsTabState extends State<AdminUnitsTab> {
                       label: Padding(
                         padding: const EdgeInsets.symmetric(vertical: 4.0),
                         child: Text(
-                          _isLoading
-                              ? (_isEditing ? 'Updating...' : 'Adding...')
-                              : (_isEditing ? 'Update Unit' : 'Add Unit'),
-                          style: const TextStyle(fontSize: 16),
+                          _editingUnitId != null ? 'Update Unit' : 'Add Unit',
+                          style: const TextStyle(
+                            fontSize: 16,
+                            color: Colors.white,
+                          ),
                         ),
                       ),
                       style: ElevatedButton.styleFrom(
@@ -392,6 +222,11 @@ class _AdminUnitsTabState extends State<AdminUnitsTab> {
                         ),
                       ),
                     ),
+                    if (_editingUnitId != null)
+                      TextButton(
+                        onPressed: _resetForm,
+                        child: const Text('Cancel'),
+                      ),
                   ],
                 ),
               ],
@@ -399,127 +234,82 @@ class _AdminUnitsTabState extends State<AdminUnitsTab> {
           ),
 
           const SizedBox(height: 30),
-          Divider(thickness: 2, color: Colors.grey[300]),
-          const SizedBox(height: 10),
 
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              const Text(
-                'Unit List',
-                style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
-              ),
-              if (_isLoading)
-                const SizedBox(
-                  height: 20,
-                  width: 20,
-                  child: CircularProgressIndicator(strokeWidth: 2),
-                ),
-            ],
+          // --------- ORANGE DIVIDER ---------
+          Divider(thickness: 3, color: AppColors.primaryColor),
+
+          const Text(
+            'Units List',
+            style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
           ),
-          const SizedBox(height: 10),
 
+          // --------- TABLE ---------
           Expanded(
             child:
-                _hasError
-                    ? Center(child: Text('Error: $_errorMessage'))
-                    : units.isEmpty && !_isLoading
+                units.isEmpty
                     ? const Center(child: Text('No units added yet.'))
-                    : ListView(
-                      children: [
-                        SingleChildScrollView(
-                          scrollDirection: Axis.horizontal,
-                          child: ConstrainedBox(
-                            constraints: BoxConstraints(
-                              minWidth: MediaQuery.of(context).size.width - 48,
+                    : SingleChildScrollView(
+                      scrollDirection: Axis.horizontal,
+                      child: Center(
+                        child: ConstrainedBox(
+                          constraints: const BoxConstraints(maxWidth: 900),
+                          child: DataTable(
+                            headingRowColor: WidgetStateProperty.all(
+                              Colors.transparent,
                             ),
-                            child: DataTable(
-                              columnSpacing: 16.0,
-                              dataRowMinHeight: 48,
-                              headingRowHeight: 48,
-                              columns: const [
-                                DataColumn(label: Text('Unit')),
-                                DataColumn(label: Text('Name')),
-                                DataColumn(label: Text('Description')),
-                                DataColumn(label: Text('Actions')),
-                              ],
-                              rows:
-                                  units.map((unit) {
-                                    return DataRow(
-                                      cells: [
-                                        DataCell(
-                                          SizedBox(
-                                            width: 20,
-                                            child: Text(
-                                              unit.orderIndex.toString(),
-                                            ),
+                            headingTextStyle: const TextStyle(
+                              fontWeight: FontWeight.bold,
+                              fontSize: 16,
+                              color: Colors.black,
+                            ),
+                            columns: const [
+                              DataColumn(label: Text('Unit')),
+                              DataColumn(label: Text('Unit Name')),
+                              DataColumn(label: Text('Description')),
+                              DataColumn(label: Text('Actions')),
+                            ],
+                            rows: List<DataRow>.generate(units.length, (index) {
+                              final unit = units[index];
+                              final isEven = index % 2 == 0;
+
+                              return DataRow(
+                                color: WidgetStateProperty.all<Color>(
+                                  isEven
+                                      ? Colors.white
+                                      : const Color(
+                                        0xFFF4F0FF,
+                                      ), // light lavender
+                                ),
+                                cells: [
+                                  DataCell(Text(unit.orderIndex.toString())),
+                                  DataCell(Text(unit.title)),
+                                  DataCell(Text(unit.description ?? '')),
+                                  DataCell(
+                                    Row(
+                                      children: [
+                                        IconButton(
+                                          icon: const Icon(
+                                            Icons.edit,
+                                            color: Colors.deepPurple,
                                           ),
+                                          onPressed: () => _editUnit(unit),
                                         ),
-                                        DataCell(
-                                          SizedBox(
-                                            width: 200,
-                                            child: Text(
-                                              unit.title,
-                                              overflow: TextOverflow.ellipsis,
-                                            ),
+                                        IconButton(
+                                          icon: const Icon(
+                                            Icons.delete,
+                                            color: Colors.red,
                                           ),
-                                        ),
-                                        DataCell(
-                                          SizedBox(
-                                            width: 100,
-                                            child: Text(
-                                              unit.description ?? '',
-                                              maxLines: 1,
-                                              overflow: TextOverflow.ellipsis,
-                                            ),
-                                          ),
-                                        ),
-                                        DataCell(
-                                          SizedBox(
-                                            width: 100,
-                                            child: Row(
-                                              mainAxisSize: MainAxisSize.min,
-                                              children: [
-                                                IconButton(
-                                                  icon: const Icon(
-                                                    Icons.edit,
-                                                    size: 20,
-                                                    color: Colors.blue,
-                                                  ),
-                                                  onPressed:
-                                                      () => _editUnit(unit),
-                                                  padding: EdgeInsets.zero,
-                                                  constraints:
-                                                      const BoxConstraints(
-                                                        maxWidth: 32,
-                                                      ),
-                                                ),
-                                                IconButton(
-                                                  icon: const Icon(
-                                                    Icons.delete_outline,
-                                                    size: 20,
-                                                    color: Colors.red,
-                                                  ),
-                                                  onPressed:
-                                                      () =>
-                                                          _deleteUnit(unit.id),
-                                                  padding: EdgeInsets.zero,
-                                                  constraints:
-                                                      const BoxConstraints(
-                                                        maxWidth: 32,
-                                                      ),
-                                                ),
-                                              ],
-                                            ),
-                                          ),
+                                          onPressed: () => _deleteUnit(unit.id),
                                         ),
                                       ],
-                                    );
-                                  }).toList(),
-                            ),
+                                    ),
+                                  ),
+                                ],
+                              );
+                            }),
                           ),
                         ),
-                      ],
+                      ),
                     ),
           ),
         ],
@@ -531,11 +321,12 @@ class _AdminUnitsTabState extends State<AdminUnitsTab> {
     return InputDecoration(
       labelText: label,
       filled: true,
-      fillColor: Colors.grey[100],
+      fillColor: Colors.grey[200],
       border: OutlineInputBorder(
         borderRadius: BorderRadius.circular(12),
         borderSide: BorderSide.none,
       ),
+      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
     );
   }
 }

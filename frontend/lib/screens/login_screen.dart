@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'package:http/http.dart' as http;
+import 'dart:convert';
 import '../themes/color.dart';
-import '../api_routes/auth-repository.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -17,9 +19,6 @@ class _LoginScreenState extends State<LoginScreen> {
   final FocusNode _passwordFocusNode = FocusNode();
   bool _obscurePassword = true;
   bool _isLoading = false;
-  String? _errorMessage;
-
-  final AuthRepository _authRepository = AuthRepository();
 
   @override
   void dispose() {
@@ -32,62 +31,35 @@ class _LoginScreenState extends State<LoginScreen> {
 
   Future<void> _login() async {
     if (!_formKey.currentState!.validate()) return;
+    setState(() => _isLoading = true);
 
-    setState(() {
-      _isLoading = true;
-      _errorMessage = null;
-    });
+    final response = await http.post(
+      Uri.parse('http://localhost:8000/api/auth/admin/login'),
+      headers: {'Content-Type': 'application/json'},
+      body: jsonEncode({
+        'email': _emailController.text,
+        'password': _passwordController.text,
+      }),
+    );
 
-    try {
-      final result = await _authRepository.login(
-        _emailController.text,
-        _passwordController.text,
+    setState(() => _isLoading = false);
+
+    if (response.statusCode == 200) {
+      final data = jsonDecode(response.body);
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString('token', data['access_token']);
+      await prefs.setInt('user_id', data['user']['id']);
+      await prefs.setString('user_role', data['user']['role']);
+
+      if (!mounted) return;
+      Navigator.pushReplacementNamed(
+        context,
+        data['user']['role'] == 'admin' ? '/admin' : '/home',
       );
-
-      if (mounted) {
-        // Get user and redirect information
-        final user = result['user'];
-        final redirectPath = result['redirect'];
-
-        // Success message
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(const SnackBar(content: Text('Login Successful!')));
-
-        // Important: Clear any existing routes and navigate to the appropriate screen
-        if (redirectPath == '/admin') {
-          // Admin user - navigate directly to admin home page
-          Navigator.of(context).pushNamedAndRemoveUntil(
-            '/admin',
-            (route) => false,
-            arguments: user,
-          );
-        } else {
-          // Regular user - navigate directly to user home page
-          Navigator.of(
-            context,
-          ).pushNamedAndRemoveUntil('/home', (route) => false, arguments: user);
-        }
-      }
-    } catch (error) {
-      setState(() {
-        _errorMessage = error.toString().replaceAll('Exception: ', '');
-      });
-
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(_errorMessage ?? 'Login failed'),
-            backgroundColor: Colors.red,
-          ),
-        );
-      }
-    } finally {
-      if (mounted) {
-        setState(() {
-          _isLoading = false;
-        });
-      }
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Incorrect email or password.')),
+      );
     }
   }
 
@@ -226,15 +198,14 @@ class _LoginScreenState extends State<LoginScreen> {
                 ),
                 keyboardType: TextInputType.emailAddress,
                 textInputAction: TextInputAction.next,
-                onFieldSubmitted: (_) {
-                  FocusScope.of(context).requestFocus(_passwordFocusNode);
-                },
-                validator: (value) {
-                  if (value == null || value.isEmpty) {
-                    return 'Please enter your email';
-                  }
-                  return null;
-                },
+                onFieldSubmitted:
+                    (_) =>
+                        FocusScope.of(context).requestFocus(_passwordFocusNode),
+                validator:
+                    (value) =>
+                        value == null || value.isEmpty
+                            ? 'Please enter your email'
+                            : null,
               ),
               const SizedBox(height: 10),
               TextFormField(
@@ -267,22 +238,20 @@ class _LoginScreenState extends State<LoginScreen> {
                           ? Icons.visibility
                           : Icons.visibility_off,
                     ),
-                    onPressed: () {
-                      setState(() {
-                        _obscurePassword = !_obscurePassword;
-                      });
-                    },
+                    onPressed:
+                        () => setState(
+                          () => _obscurePassword = !_obscurePassword,
+                        ),
                   ),
                 ),
                 obscureText: _obscurePassword,
                 textInputAction: TextInputAction.done,
                 onFieldSubmitted: (_) => _login(),
-                validator: (value) {
-                  if (value == null || value.isEmpty) {
-                    return 'Please enter your password';
-                  }
-                  return null;
-                },
+                validator:
+                    (value) =>
+                        value == null || value.isEmpty
+                            ? 'Please enter your password'
+                            : null,
               ),
               Align(
                 alignment: Alignment.centerRight,
@@ -299,14 +268,6 @@ class _LoginScreenState extends State<LoginScreen> {
                   ),
                 ),
               ),
-              if (_errorMessage != null)
-                Padding(
-                  padding: const EdgeInsets.only(top: 8.0),
-                  child: Text(
-                    _errorMessage!,
-                    style: const TextStyle(color: Colors.red),
-                  ),
-                ),
               const SizedBox(height: 16),
               SizedBox(
                 width: double.infinity,
@@ -314,24 +275,15 @@ class _LoginScreenState extends State<LoginScreen> {
                   onPressed: _isLoading ? null : _login,
                   style: ElevatedButton.styleFrom(
                     backgroundColor: AppColors.welcomeScreenButton,
-                    padding: const EdgeInsets.symmetric(vertical: 12),
                   ),
                   child:
                       _isLoading
-                          ? const SizedBox(
-                            height: 20,
-                            width: 20,
-                            child: CircularProgressIndicator(
-                              color: Colors.white,
-                              strokeWidth: 3,
-                            ),
-                          )
+                          ? const CircularProgressIndicator(color: Colors.white)
                           : const Text(
                             'Log In',
                             style: TextStyle(
                               color: Colors.black,
                               fontWeight: FontWeight.bold,
-                              fontSize: 16,
                             ),
                           ),
                 ),
