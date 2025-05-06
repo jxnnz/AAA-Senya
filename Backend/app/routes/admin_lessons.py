@@ -6,6 +6,9 @@ from app.models import Lesson, Unit, Sign
 from app.dependencies import get_db, get_admin_user
 from app.schemas import LessonSchema
 from typing import List
+from fastapi import UploadFile, File
+import shutil, uuid, os
+from pathlib import Path
 
 router = APIRouter()
 
@@ -33,6 +36,7 @@ async def create_lesson(
     description: str = Form(None),
     rubies_reward: int = Form(0),
     order_index: int = Form(...),
+    image_url: str = Form(None),
     db: AsyncSession = Depends(get_db),
     admin_user = Depends(get_admin_user)
 ):
@@ -47,6 +51,7 @@ async def create_lesson(
         description=description,
         rubies_reward=rubies_reward,
         order_index=order_index,
+        image_url=image_url,
         archived=False
     )
     db.add(new_lesson)
@@ -62,6 +67,7 @@ async def update_lesson(
     description: str = Form(None),
     rubies_reward: int = Form(0),
     order_index: int = Form(...),
+    image_url: str = Form(None),
     db: AsyncSession = Depends(get_db),
     admin_user = Depends(get_admin_user)
 ):
@@ -76,6 +82,7 @@ async def update_lesson(
     lesson.description = description
     lesson.rubies_reward = rubies_reward
     lesson.order_index = order_index
+    lesson.image_url = image_url
     
     await db.commit()
     await db.refresh(lesson)
@@ -115,3 +122,48 @@ async def get_all_lessons(
         query = query.where(Lesson.archived == False)
     result = await db.execute(query)
     return result.scalars().all()
+
+LESSON_IMAGE_DIR = Path("static/images/lessons")
+os.makedirs(LESSON_IMAGE_DIR, exist_ok=True)
+LESSON_IMAGE_BASE = "/static/images/lessons"
+
+@router.post("/{lesson_id}/upload-image", summary="Upload Lesson Image")
+async def upload_lesson_image(
+    lesson_id: int,
+    file: UploadFile = File(...),
+    db: AsyncSession = Depends(get_db),
+    admin_user = Depends(get_admin_user)
+):
+    result = await db.execute(select(Lesson).where(Lesson.id == lesson_id))
+    lesson = result.scalars().first()
+    if not lesson:
+        raise HTTPException(status_code=404, detail="Lesson not found")
+
+    if not file.content_type.startswith("image/"):
+        raise HTTPException(status_code=400, detail="Invalid file type")
+
+    ext = os.path.splitext(file.filename)[1]
+    filename = f"{uuid.uuid4()}{ext}"
+
+    folder = LESSON_IMAGE_DIR / str(lesson_id)
+    os.makedirs(folder, exist_ok=True)
+    file_path = folder / filename
+
+    try:
+        with open(file_path, "wb") as f:
+            shutil.copyfileobj(file.file, f)
+    except Exception:
+        raise HTTPException(status_code=500, detail="Failed to save image")
+    finally:
+        file.file.close()
+
+    # Save the image URL in the database
+    lesson.image_url = f"{LESSON_IMAGE_BASE}/{lesson_id}/{filename}"
+    await db.commit()
+    await db.refresh(lesson)
+
+    return {
+        "success": True,
+        "image_url": lesson.image_url,
+        "msg": "Image uploaded successfully"
+    }

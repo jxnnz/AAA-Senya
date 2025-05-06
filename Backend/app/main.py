@@ -4,15 +4,10 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
 from app.config import DATABASE_URL
 from app import models
-from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession
-from sqlalchemy.orm import sessionmaker
+from app.db import engine
 import os
 from pathlib import Path
 
-engine = create_async_engine(DATABASE_URL, echo=True, future=True)
-async_session = sessionmaker(
-    bind=engine, class_=AsyncSession, expire_on_commit=False
-)
 
 app = FastAPI(title="Senya Sign Language App")
 

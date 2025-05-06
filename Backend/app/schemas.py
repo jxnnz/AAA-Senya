@@ -4,6 +4,7 @@ from typing import List, Optional, Dict, Any
 
 class UserSignup(BaseModel):
     name: str
+    username: str
     email: EmailStr
     password: constr(min_length=8)
     confirm_password: constr(min_length=8)
@@ -15,7 +16,7 @@ class UserSignup(BaseModel):
         return v
 
 class UserLogin(BaseModel):
-    email: EmailStr
+    email: str
     password: str
 
 class AdminLogin(BaseModel):
@@ -74,6 +75,7 @@ class LessonSchema(BaseModel):
     description: Optional[str] = None
     rubies_reward: int = 0
     order_index: int = 0
+    image_url: Optional[str] = None
     archived: bool = False
     created_at: datetime
     updated_at: datetime

@@ -4,9 +4,9 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flutter/foundation.dart';
 
 class ApiService {
-  static const String _baseUrl = 'http://localhost:8000/api';
+  static const String baseUrl = 'http://localhost:8000/api';
 
-  Uri _buildUri(String endpoint) => Uri.parse('$_baseUrl$endpoint');
+  Uri _buildUri(String endpoint) => Uri.parse('$baseUrl$endpoint');
 
   // Public token/user access
   Future<String?> getToken() async {
@@ -32,7 +32,7 @@ class ApiService {
     };
   }
 
-  Future<Map<String, String>> _getFormHeaders() async {
+  Future<Map<String, String>> getFormHeaders() async {
     final token = await getToken();
     return {'Authorization': 'Bearer $token'};
   }
@@ -111,7 +111,7 @@ class ApiService {
     String endpoint,
     Map<String, dynamic> data,
   ) async {
-    final headers = await _getFormHeaders();
+    final headers = await getFormHeaders();
     return http.post(_buildUri(endpoint), headers: headers, body: data);
   }
 
@@ -119,12 +119,27 @@ class ApiService {
     String endpoint,
     Map<String, dynamic> data,
   ) async {
-    final headers = await _getFormHeaders();
+    final headers = await getFormHeaders();
     return http.put(_buildUri(endpoint), headers: headers, body: data);
   }
 
   http.Response _handleResponse(http.Response res) {
     if (res.statusCode >= 200 && res.statusCode < 300) return res;
     throw Exception('Request failed: ${res.statusCode} ${res.body}');
+  }
+
+  // Fetch available heart packages
+  Future<List<dynamic>> getHeartPackages() async {
+    final response = await get('/shop/heart-packages');
+    return jsonDecode(response.body);
+  }
+
+  // Purchase heart package
+  Future<Map<String, dynamic>> purchaseHearts(int userId, int packageId) async {
+    final response = await post('/shop/purchase-hearts', {
+      'user_id': userId,
+      'package_id': packageId,
+    });
+    return jsonDecode(response.body);
   }
 }

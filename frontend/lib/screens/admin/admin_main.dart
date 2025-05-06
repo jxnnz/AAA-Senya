@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../../themes/color.dart';
-
+import '../../auth/auth_util.dart';
+import '../../widgets/logout_dialog.dart';
 import 'admin_units.dart';
 import 'admin_lessons.dart';
 import 'admin_signs.dart';
@@ -42,8 +43,11 @@ class _AdminMainScreenState extends State<AdminMainScreen> {
                 _buildSidebarItem(2, Icons.video_library, 'Signs'),
                 const Spacer(),
                 GestureDetector(
-                  onTap: () {
-                    Navigator.pushReplacementNamed(context, '/login');
+                  onTap: () async {
+                    final shouldLogout = await showLogoutDialog(context);
+                    if (shouldLogout) {
+                      await logout(context);
+                    }
                   },
                   child: Column(
                     children: [

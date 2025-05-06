@@ -33,6 +33,7 @@ class Lesson(Base):
     description = Column(Text)
     rubies_reward = Column(Integer, default=0)
     order_index = Column(Integer, default=0)
+    image_url = Column(String(255), nullable=True)
     archived = Column(Boolean, default=False)
     created_at = Column(TIMESTAMP, server_default=func.now())
     updated_at = Column(TIMESTAMP, server_default=func.now(), onupdate=func.now())
@@ -83,6 +84,7 @@ class Account(Base):
 
     user_id = Column(Integer, primary_key=True, autoincrement=True)
     name = Column(String(255), nullable=False)
+    username = Column(String(255), unique=True, nullable=False)
     email = Column(String(255), unique=True, nullable=False)
     hash_password = Column(String(255), nullable=False)
     role = Column(Enum('user', 'admin'), default='user')

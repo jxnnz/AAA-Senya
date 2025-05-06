@@ -1,6 +1,10 @@
+// home_screen.dart
+import 'dart:convert';
 import 'package:flutter/material.dart';
-import "../dashboards/lessonScreen/lesson_screen.dart";
+import 'package:frontend/screens/loading_screen.dart';
+import 'package:http/http.dart' as http;
 import '../../themes/color.dart';
+import '../../services/api_service.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -10,304 +14,288 @@ class HomeScreen extends StatefulWidget {
 }
 
 class _HomeScreenState extends State<HomeScreen> {
-  bool _isSidebarExpanded = false;
-  bool _isMobileSidebarOpen = false;
-  String _selectedMenu = "home";
-  int streakCount = 10;
-  int lives = 5;
-  int rubies = 1000;
-  bool isStreakActive = true;
+  final ApiService _apiService = ApiService();
+  int? userId;
+  Map<String, dynamic>? profile;
+  List<dynamic> units = [];
+  Map<int, Map<String, dynamic>> lessonStatuses = {};
+  Map<int, Map<String, dynamic>> lessonProgress = {};
+  Map<String, dynamic>? dailyChallenge;
+  bool isLoading = true;
+  bool hasError = false;
 
-  // Simulated Lesson Data
-  final List<Map<String, dynamic>> units = [
-    {
-      "title": "UNIT 1",
-      "subtitle": "The Basics",
-      "lessons": [
-        {
-          "title": "Lesson 1",
-          "subtitle": "Introduction",
-          "image": "assets/lesson_images/hello_bubble.png",
-          "progress": 0.6,
-          "unlocked": true,
-        },
-        {
-          "title": "Lesson 2",
-          "subtitle": "Alphabet (A-M)",
-          "image": "assets/lesson_images/abc.png",
-          "progress": 0.0,
-          "unlocked": true,
-        },
-        {
-          "title": "Lesson 3",
-          "subtitle": "Alphabet (N-Z)",
-          "image": "assets/lesson_images/xyz.png",
-          "progress": 0.0,
-          "unlocked": true,
-        },
-      ],
-    },
+  static const List<Color> lessonColors = [
+    Color(0xFF2C3F6D),
+    Color(0xFF83B100),
+    Color(0xFFE82C36),
+    Color(0xFF4C1199),
   ];
 
   @override
+  void initState() {
+    super.initState();
+    _loadHomeData();
+  }
+
+  Future<void> _loadHomeData() async {
+    try {
+      setState(() => isLoading = true);
+      userId = await _apiService.getUserId();
+      debugPrint("User ID: $userId");
+
+      if (userId == null) throw Exception("User ID not found");
+
+      final profileRes = await _apiService.get("/profile/$userId");
+      debugPrint("Profile Response: ${profileRes.body}");
+      profile = jsonDecode(profileRes.body);
+
+      final unitsRes = await _apiService.get("/lessons/units/");
+      debugPrint("Units Response: ${unitsRes.body}");
+      units = jsonDecode(unitsRes.body);
+
+      try {
+        final challengeRes = await _apiService.get(
+          "/lessons/daily-challenges/$userId",
+        );
+        debugPrint("Daily Challenge Response: ${challengeRes.body}");
+        dailyChallenge = jsonDecode(challengeRes.body);
+      } catch (e) {
+        debugPrint("Failed to load daily challenge: $e");
+      }
+
+      for (var unit in units) {
+        for (var lesson in unit['lessons']) {
+          final lid = lesson['id'];
+          try {
+            final statusRes = await _apiService.get(
+              "/lessons/lesson-status/$userId/$lid",
+            );
+            debugPrint("Lesson $lid status: ${statusRes.body}");
+            lessonStatuses[lid] = jsonDecode(statusRes.body);
+          } catch (e) {
+            debugPrint("Lesson status fetch error (lesson $lid): $e");
+            lessonStatuses[lid] = {"is_locked": false};
+          }
+
+          try {
+            final progressRes = await _apiService.get(
+              "/lessons/user-progress/$userId/$lid",
+            );
+            debugPrint("Lesson \$lid progress: ${progressRes.body}");
+            lessonProgress[lid] = jsonDecode(progressRes.body);
+          } catch (e) {
+            debugPrint("Lesson progress fetch error (lesson $lid): $e");
+            lessonProgress[lid] = {"progress": 0, "completed": false};
+          }
+        }
+      }
+
+      setState(() {
+        isLoading = false;
+        hasError = false;
+      });
+    } catch (e) {
+      debugPrint('Home Load Error: $e');
+      setState(() {
+        isLoading = false;
+        hasError = true;
+      });
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
-    bool isMobile = MediaQuery.of(context).size.width < 600;
+    if (isLoading) {
+      return LoadingScreen(
+        onComplete: (context) async {
+          await _loadHomeData();
+          Navigator.pushReplacementNamed(context, '/user');
+        },
+      );
+    }
 
-    return Scaffold(
-      body: Stack(
-        children: [
-          // Overlay to close sidebar
-          if (_isSidebarExpanded || _isMobileSidebarOpen)
-            GestureDetector(
-              onTap: () {
-                setState(() {
-                  _isSidebarExpanded = false;
-                  _isMobileSidebarOpen = false;
-                });
-              },
-              child: Container(
-                color: Colors.black12,
-                width: double.infinity,
-                height: double.infinity,
-              ),
-            ),
+    if (hasError) {
+      return const Center(
+        child: Text('Failed to load. Check internet or try again.'),
+      );
+    }
 
-          // Main layout
-          Row(
-            children: [
-              // Sidebar
-              if (isMobile)
-                _isMobileSidebarOpen
-                    ? _buildSidebar(isMobile: true)
-                    : const SizedBox.shrink()
-              else
-                _buildSidebar(isMobile: false),
-
-              // Main content
-              Expanded(
-                child: Column(
-                  children: [
-                    // Top app bar with stats
-                    Container(
-                      color: Colors.white,
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 16,
-                        vertical: 10,
-                      ),
-                      child: Row(
-                        mainAxisAlignment: MainAxisAlignment.end,
-                        children: [
-                          _buildAppBarIcon(
-                            Icons.local_fire_department,
-                            streakCount,
-                            Colors.orange,
-                          ),
-                          const SizedBox(width: 16),
-                          _buildAppBarIcon(Icons.favorite, lives, Colors.red),
-                          const SizedBox(width: 16),
-                          _buildAppBarIcon(Icons.diamond, rubies, Colors.pink),
-                        ],
-                      ),
-                    ),
-
-                    // Main content area
-                    Expanded(
-                      child: Padding(
-                        padding: const EdgeInsets.all(16.0),
-                        child: Row(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            // Left side - lessons
-                            Expanded(
-                              flex: 2,
-                              child: ListView(
-                                children:
-                                    units
-                                        .map((unit) => _buildUnitSection(unit))
-                                        .toList(),
-                              ),
-                            ),
-
-                            // Right side - challenges and shop
-                            Expanded(
-                              flex: 1,
-                              child: Padding(
-                                padding: const EdgeInsets.only(left: 16.0),
-                                child: Column(
-                                  children: [
-                                    _buildDailyChallenge(),
-                                    const SizedBox(height: 16),
-                                    _buildSenShop(),
-                                  ],
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          ),
-
-          // Toggle button for mobile
-          if (isMobile && !_isMobileSidebarOpen)
-            Positioned(
-              top: 20,
-              left: 10,
-              child: IconButton(
-                icon: const Icon(Icons.menu, color: Colors.orange),
-                onPressed: () => setState(() => _isMobileSidebarOpen = true),
-              ),
-            ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildSidebar({bool isMobile = false}) {
-    return Container(
-      width: 85,
-      color: Colors.orange,
-      height: MediaQuery.of(context).size.height,
-      child: Column(
-        children: [
-          const SizedBox(height: 20),
-          // Logo
-          Container(
-            padding: const EdgeInsets.all(10),
-            child: const Icon(
-              Icons.monetization_on,
-              color: Colors.white,
-              size: 40,
-            ),
-          ),
-          const SizedBox(height: 40),
-
-          // Navigation items
-          _buildSidebarItem("home", Icons.home, "Home", isSelected: true),
-          _buildSidebarItem("flashcard", Icons.menu_book, "Flashcards"),
-          _buildSidebarItem("practice", Icons.sports_esports, "Practice"),
-          _buildSidebarItem("profile", Icons.person, "Profile"),
-
-          const Spacer(),
-
-          // Logout button
-          Container(
-            padding: const EdgeInsets.all(10),
-            child: const Icon(Icons.logout, color: Colors.white, size: 30),
-          ),
-          const SizedBox(height: 20),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildSidebarItem(
-    String menu,
-    IconData icon,
-    String label, {
-    bool isSelected = false,
-    bool isMobile = false,
-  }) {
     return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 12.0),
-      child: Column(
+      padding: const EdgeInsets.all(16),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Icon(icon, color: Colors.white, size: 30),
-          const SizedBox(height: 4),
-          Text(label, style: TextStyle(color: Colors.white, fontSize: 12)),
+          Expanded(
+            flex: 3,
+            child: SingleChildScrollView(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children:
+                    units
+                        .asMap()
+                        .entries
+                        .map((entry) => _buildUnit(entry.value, entry.key))
+                        .toList(),
+              ),
+            ),
+          ),
+          const SizedBox(width: 16),
+          Expanded(
+            flex: 1,
+            child: Column(
+              children: [
+                _buildDailyChallengeCard(),
+                const SizedBox(height: 20),
+                _buildHeartShopCard(),
+              ],
+            ),
+          ),
         ],
       ),
     );
   }
 
-  Widget _buildUnitSection(Map<String, dynamic> unit) {
+  Widget _buildUnit(Map unit, int unitIndex) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
+        const SizedBox(height: 20),
         Text(
-          unit["title"],
+          unit['title'],
           style: const TextStyle(
-            fontSize: 24,
+            fontSize: 22,
             fontWeight: FontWeight.bold,
-            color: Colors.orange,
+            color: AppColors.primaryColor,
           ),
         ),
-        Text(unit["subtitle"], style: const TextStyle(fontSize: 16)),
-        const SizedBox(height: 16),
-        ...unit["lessons"].map<Widget>((lesson) {
-          return _buildLessonCard(lesson);
-        }).toList(),
+        const SizedBox(height: 10),
+        Column(
+          children: List.generate(
+            unit['lessons'].length,
+            (index) => _buildLessonCard(unit['lessons'][index], index),
+          ),
+        ),
       ],
     );
   }
 
-  Widget _buildLessonCard(Map<String, dynamic> lesson) {
-    Color cardColor;
-    if (lesson["title"] == "Lesson 1") {
-      cardColor = const Color(0xFF2E3A59);
-    } else if (lesson["title"] == "Lesson 2") {
-      cardColor = const Color(0xFFB5B6C8);
-    } else {
-      cardColor = const Color(0xFFB5B6C8);
-    }
+  Widget _buildLessonCard(Map lesson, int index) {
+    final isLocked = lessonStatuses[lesson['id']]?["is_locked"] ?? false;
+    final progress = lessonProgress[lesson['id']]?["progress"] ?? 0;
+    final color = lessonColors[index % lessonColors.length];
 
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 16.0),
-      child: Container(
-        padding: const EdgeInsets.all(16),
-        decoration: BoxDecoration(
-          color: cardColor,
-          borderRadius: BorderRadius.circular(12),
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      lesson["title"],
-                      style: const TextStyle(color: Colors.white, fontSize: 16),
-                    ),
-                    Text(
-                      lesson["subtitle"],
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontSize: 22,
-                        fontWeight: FontWeight.bold,
+    return GestureDetector(
+      onTap:
+          isLocked
+              ? null
+              : () => Navigator.pushNamed(
+                context,
+                '/lesson',
+                arguments: lesson['id'],
+              ),
+      child: Opacity(
+        opacity: isLocked ? 0.5 : 1.0,
+        child: Container(
+          margin: const EdgeInsets.symmetric(vertical: 8),
+          padding: const EdgeInsets.symmetric(vertical: 16),
+          decoration: BoxDecoration(
+            color: color,
+            borderRadius: BorderRadius.circular(16),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.grey.shade400,
+                blurRadius: 6,
+                offset: const Offset(0, 3),
+              ),
+            ],
+          ),
+          child: ListTile(
+            leading:
+                lesson['video_url'] != null
+                    ? ClipRRect(
+                      borderRadius: BorderRadius.circular(8),
+                      child: Image.network(
+                        lesson['video_url'],
+                        width: 60,
+                        height: 60,
+                        fit: BoxFit.cover,
                       ),
-                    ),
-                  ],
+                    )
+                    : const Icon(Icons.image, color: Colors.white),
+            title: Text(
+              lesson['title'],
+              style: const TextStyle(
+                fontWeight: FontWeight.bold,
+                color: Colors.white,
+              ),
+            ),
+            subtitle: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const SizedBox(height: 6),
+                LinearProgressIndicator(
+                  value: (progress / 100).clamp(0.0, 1.0),
+                  backgroundColor: Colors.white30,
+                  color: Colors.white,
                 ),
-                Image.asset(
-                  lesson["image"],
-                  width: 80,
-                  height: 80,
-                  fit: BoxFit.contain,
+                const SizedBox(height: 4),
+                Text(
+                  "$progress% completed",
+                  style: const TextStyle(color: Colors.white70),
                 ),
               ],
             ),
-            const SizedBox(height: 8),
-            Text(
-              "Completed ${(lesson["progress"] * 100).toInt()}%",
-              style: const TextStyle(color: Colors.white70, fontSize: 12),
+            trailing:
+                isLocked ? const Icon(Icons.lock, color: Colors.white) : null,
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildDailyChallengeCard() {
+    if (dailyChallenge == null || dailyChallenge!.isEmpty) return Container();
+
+    return Card(
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+      elevation: 6,
+      child: Padding(
+        padding: const EdgeInsets.all(20),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Image.asset(
+              'assets/images/star_challenge.png',
+              width: 80,
+              height: 80,
+              errorBuilder:
+                  (context, error, stackTrace) =>
+                      const Icon(Icons.star, size: 60),
             ),
-            const SizedBox(height: 4),
-            ClipRRect(
-              borderRadius: BorderRadius.circular(10),
-              child: LinearProgressIndicator(
-                value: lesson["progress"],
-                backgroundColor: Colors.white24,
-                color: Colors.orange,
-                minHeight: 10,
+            const SizedBox(height: 12),
+            const Text(
+              "Daily Challenge",
+              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
+            ),
+            const SizedBox(height: 12),
+            ElevatedButton(
+              onPressed:
+                  () => Navigator.pushNamed(
+                    context,
+                    '/lesson', // 🔁 Change to '/daily-challenge' if needed
+                    arguments: dailyChallenge!["id"],
+                  ),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AppColors.primaryColor,
+                padding: const EdgeInsets.symmetric(
+                  vertical: 14,
+                  horizontal: 20,
+                ),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
               ),
+              child: const Text("Start", style: TextStyle(fontSize: 16)),
             ),
           ],
         ),
@@ -315,94 +303,51 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  Widget _buildDailyChallenge() {
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(12),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.grey.withOpacity(0.2),
-            spreadRadius: 1,
-            blurRadius: 3,
-            offset: const Offset(0, 1),
-          ),
-        ],
-      ),
-      child: Column(
-        children: [
-          const Text(
-            "Daily Challenge",
-            style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-          ),
-          const SizedBox(height: 20),
-          ElevatedButton(
-            onPressed: () {},
-            style: ElevatedButton.styleFrom(
-              backgroundColor: Colors.orange[200],
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(20),
+  Widget _buildHeartShopCard() {
+    return SizedBox(
+      width: double.infinity, // take full width of right column
+      child: Card(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        elevation: 6,
+        child: Padding(
+          padding: const EdgeInsets.all(24), // wider padding
+          child: Column(
+            children: [
+              Image.asset(
+                'assets/images/shop_cart.png',
+                width: 100,
+                height: 100,
+                errorBuilder:
+                    (context, error, stackTrace) =>
+                        const Icon(Icons.shopping_cart, size: 60),
               ),
-              minimumSize: const Size(120, 36),
-            ),
-            child: const Text("Start", style: TextStyle(color: Colors.black)),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildSenShop() {
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(12),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.grey.withOpacity(0.2),
-            spreadRadius: 1,
-            blurRadius: 3,
-            offset: const Offset(0, 1),
-          ),
-        ],
-      ),
-      child: Column(
-        children: [
-          const Text(
-            "SenShop",
-            style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-          ),
-          const SizedBox(height: 16),
-          const Icon(Icons.shopping_cart, color: Colors.red, size: 40),
-          const SizedBox(height: 16),
-          ElevatedButton(
-            onPressed: () {},
-            style: ElevatedButton.styleFrom(
-              backgroundColor: Colors.orange[200],
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(20),
+              const SizedBox(height: 16),
+              const Text(
+                "SenShop",
+                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
               ),
-              minimumSize: const Size(120, 36),
-            ),
-            child: const Text("Buy", style: TextStyle(color: Colors.black)),
+              const SizedBox(height: 12),
+              SizedBox(
+                width: double.infinity,
+                child: ElevatedButton(
+                  onPressed: () => Navigator.pushNamed(context, '/heart-shop'),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AppColors.primaryColor,
+                    padding: const EdgeInsets.symmetric(vertical: 14),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                  ),
+                  child: const Text(
+                    "Buy More Hearts",
+                    style: TextStyle(fontSize: 16),
+                  ),
+                ),
+              ),
+            ],
           ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildAppBarIcon(IconData icon, int count, Color color) {
-    return Row(
-      children: [
-        Icon(icon, color: color, size: 24),
-        const SizedBox(width: 5),
-        Text(
-          '$count',
-          style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
         ),
-      ],
+      ),
     );
   }
 }

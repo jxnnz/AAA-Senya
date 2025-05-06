@@ -5,7 +5,10 @@ import 'package:shared_preferences/shared_preferences.dart';
 class AuthService {
   static const String baseUrl = 'http://localhost:8000/api/auth';
 
-  static Future<bool> login(String email, String password) async {
+  static Future<Map<String, dynamic>?> login(
+    String email,
+    String password,
+  ) async {
     final response = await http.post(
       Uri.parse('$baseUrl/login'),
       headers: {'Content-Type': 'application/json'},
@@ -18,14 +21,15 @@ class AuthService {
       await prefs.setString('access_token', data['access_token']);
       await prefs.setInt('user_id', data['user']['id']);
       await prefs.setString('user_role', data['user']['role']);
-      return true;
+      return data['user'];
     } else {
-      return false;
+      return null;
     }
   }
 
   static Future<String?> signup(
     String name,
+    String username,
     String email,
     String password,
     String confirmPassword,
@@ -35,6 +39,7 @@ class AuthService {
       headers: {'Content-Type': 'application/json'},
       body: jsonEncode({
         'name': name,
+        'username': username,
         'email': email,
         'password': password,
         'confirm_password': confirmPassword,
@@ -42,7 +47,7 @@ class AuthService {
     );
 
     if (response.statusCode == 200) {
-      return null; // Success
+      return null;
     } else {
       final error = jsonDecode(response.body);
       return error['detail'] ?? "Signup failed";

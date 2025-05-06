@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'dart:convert';
+import 'package:image_picker/image_picker.dart';
+import '../../services/admin_lessons_service.dart';
 import '../../services/api_service.dart';
 import '../../themes/color.dart';
 
@@ -12,6 +14,7 @@ class AdminLessonsTab extends StatefulWidget {
 
 class _AdminLessonsTabState extends State<AdminLessonsTab> {
   final ApiService _apiService = ApiService();
+  final AdminLessonService _lessonService = AdminLessonService();
   List<Map<String, dynamic>> _lessons = [];
   List<Map<String, dynamic>> _units = [];
   int? _selectedUnitId;
@@ -20,6 +23,8 @@ class _AdminLessonsTabState extends State<AdminLessonsTab> {
   final TextEditingController _lessonNoController = TextEditingController();
   final TextEditingController _lessonTitleController = TextEditingController();
   final TextEditingController _descriptionController = TextEditingController();
+  final TextEditingController _rubiesController = TextEditingController();
+  String? _imageUrl;
 
   @override
   void initState() {
@@ -63,6 +68,8 @@ class _AdminLessonsTabState extends State<AdminLessonsTab> {
       'order_index': _lessonNoController.text.trim(),
       'title': _lessonTitleController.text.trim(),
       'description': _descriptionController.text.trim(),
+      'rubies_reward': _rubiesController.text.trim(),
+      'image_url': _imageUrl ?? '',
     };
 
     if (_editingLessonId != null) {
@@ -106,6 +113,8 @@ class _AdminLessonsTabState extends State<AdminLessonsTab> {
       _lessonTitleController.text = lesson['title'] ?? '';
       _descriptionController.text = lesson['description'] ?? '';
       _selectedUnitId = lesson['unit_id'];
+      _rubiesController.text = lesson['rubies_reward']?.toString() ?? '0';
+      _imageUrl = lesson['image_url'];
     });
     _showAddLessonDialog();
   }
@@ -114,6 +123,8 @@ class _AdminLessonsTabState extends State<AdminLessonsTab> {
     _lessonNoController.clear();
     _lessonTitleController.clear();
     _descriptionController.clear();
+    _rubiesController.clear();
+    _imageUrl = null;
     _editingLessonId = null;
   }
 
@@ -264,6 +275,13 @@ class _AdminLessonsTabState extends State<AdminLessonsTab> {
         style: const TextStyle(color: Colors.black),
       ),
       const SizedBox(height: 12),
+      const Text("Rubies Reward:", style: TextStyle(color: Colors.black)),
+      TextFormField(
+        controller: _rubiesController,
+        keyboardType: TextInputType.number,
+        style: const TextStyle(color: Colors.black),
+      ),
+      const SizedBox(height: 12),
 
       if (isMobile) ...[
         const Text("Lesson Image:", style: TextStyle(color: Colors.black)),
@@ -282,16 +300,37 @@ class _AdminLessonsTabState extends State<AdminLessonsTab> {
             border: Border.all(color: Colors.grey),
             borderRadius: BorderRadius.circular(8),
           ),
-          child: const Center(
-            child: Text(
-              'Click to upload image',
-              style: TextStyle(color: Colors.grey),
-            ),
-          ),
+          child:
+              _imageUrl != null
+                  ? Image.network(_imageUrl!)
+                  : const Center(
+                    child: Text(
+                      'Click to upload image',
+                      style: TextStyle(color: Colors.grey),
+                    ),
+                  ),
         ),
         const SizedBox(height: 10),
         ElevatedButton.icon(
-          onPressed: () {}, // your upload logic here
+          onPressed: () async {
+            final ImagePicker picker = ImagePicker();
+            final XFile? picked = await picker.pickImage(
+              source: ImageSource.gallery,
+            );
+
+            if (picked != null && _editingLessonId != null) {
+              final AdminLessonService _lessonService = AdminLessonService();
+
+              final imageUrl = await _lessonService.uploadLessonImage(
+                _editingLessonId!,
+                picked,
+              );
+
+              setState(() {
+                _imageUrl = imageUrl;
+              });
+            }
+          },
           icon: const Icon(Icons.upload, color: Colors.red),
           label: const Text(
             "Upload Image",

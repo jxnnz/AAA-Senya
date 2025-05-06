@@ -6,18 +6,24 @@ from app.dependencies import get_db
 from app.auth import hash_password, verify_password, create_access_token
 from sqlalchemy.future import select
 from datetime import datetime
+from sqlalchemy import or_
 
 router = APIRouter()
 
 @router.post("/signup", summary="User Signup")
 async def signup(user: UserSignup, db: AsyncSession = Depends(get_db)):
-    result = await db.execute(select(Account).where(Account.email == user.email))
+    result = await db.execute(
+        select(Account).where(
+            or_(Account.email == user.email, Account.username == user.username)
+        )
+    )
     if result.scalars().first():
-        raise HTTPException(status_code=400, detail="Email already registered")
-    
+        raise HTTPException(status_code=400, detail="Email or username already registered")
+
     new_account = Account(
         name=user.name,
         email=user.email,
+        username=user.username,
         hash_password=hash_password(user.password),
         role="user"
     )
@@ -28,12 +34,20 @@ async def signup(user: UserSignup, db: AsyncSession = Depends(get_db)):
     new_profile = UserProfile(user_id=new_account.user_id)
     db.add(new_profile)
     await db.commit()
-    
+
     return {"msg": "Signup successful"}
+
 
 @router.post("/login", response_model=AccountResponseSchema)
 async def login(user: UserLogin, db: AsyncSession = Depends(get_db)):
-    result = await db.execute(select(Account).where(Account.email == user.email))
+    result = await db.execute(
+        select(Account).where(
+            or_(
+                Account.email == user.email,
+                Account.username == user.email  
+            )
+        )
+    )
     account = result.scalars().first()
     if not account or not verify_password(user.password, account.hash_password):
         raise HTTPException(status_code=400, detail="Incorrect credentials")
@@ -42,7 +56,7 @@ async def login(user: UserLogin, db: AsyncSession = Depends(get_db)):
     await db.commit()
 
     token = create_access_token({"sub": str(account.user_id), "role": account.role})
-    
+
     return {
         "access_token": token,
         "token_type": "bearer",

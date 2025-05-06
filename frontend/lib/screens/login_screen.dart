@@ -31,34 +31,43 @@ class _LoginScreenState extends State<LoginScreen> {
 
   Future<void> _login() async {
     if (!_formKey.currentState!.validate()) return;
+
     setState(() => _isLoading = true);
 
-    final response = await http.post(
-      Uri.parse('http://localhost:8000/api/auth/admin/login'),
-      headers: {'Content-Type': 'application/json'},
-      body: jsonEncode({
-        'email': _emailController.text,
-        'password': _passwordController.text,
-      }),
-    );
-
-    setState(() => _isLoading = false);
-
-    if (response.statusCode == 200) {
-      final data = jsonDecode(response.body);
-      final prefs = await SharedPreferences.getInstance();
-      await prefs.setString('token', data['access_token']);
-      await prefs.setInt('user_id', data['user']['id']);
-      await prefs.setString('user_role', data['user']['role']);
-
-      if (!mounted) return;
-      Navigator.pushReplacementNamed(
-        context,
-        data['user']['role'] == 'admin' ? '/admin' : '/home',
+    try {
+      final response = await http.post(
+        Uri.parse('http://localhost:8000/api/auth/login'), // ✅ unified login
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode({
+          'email': _emailController.text,
+          'password': _passwordController.text,
+        }),
       );
-    } else {
+
+      setState(() => _isLoading = false);
+
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        final prefs = await SharedPreferences.getInstance();
+        await prefs.setString('token', data['access_token']);
+        await prefs.setInt('user_id', data['user']['id']);
+        await prefs.setString('user_role', data['user']['role']);
+
+        if (!mounted) return;
+
+        // ✅ Role-based redirection
+        final isAdmin = data['user']['role'] == 'admin';
+        Navigator.pushReplacementNamed(context, isAdmin ? '/admin' : '/user');
+      } else {
+        final error = jsonDecode(response.body);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(error['detail'] ?? 'Login failed.')),
+        );
+      }
+    } catch (e) {
+      setState(() => _isLoading = false);
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Incorrect email or password.')),
+        SnackBar(content: Text('Something went wrong. Please try again.')),
       );
     }
   }
