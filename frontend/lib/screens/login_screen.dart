@@ -49,7 +49,7 @@ class _LoginScreenState extends State<LoginScreen> {
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
         final prefs = await SharedPreferences.getInstance();
-        await prefs.setString('token', data['access_token']);
+        await prefs.setString('access_token', data['access_token']);
         await prefs.setInt('user_id', data['user']['id']);
         await prefs.setString('user_role', data['user']['role']);
 
@@ -57,7 +57,7 @@ class _LoginScreenState extends State<LoginScreen> {
 
         // ✅ Role-based redirection
         final isAdmin = data['user']['role'] == 'admin';
-        Navigator.pushReplacementNamed(context, isAdmin ? '/admin' : '/user');
+        Navigator.pushReplacementNamed(context, isAdmin ? '/admin' : '/home');
       } else {
         final error = jsonDecode(response.body);
         ScaffoldMessenger.of(context).showSnackBar(
@@ -79,7 +79,7 @@ class _LoginScreenState extends State<LoginScreen> {
 
     return Scaffold(
       appBar: AppBar(
-        backgroundColor: AppColors.primaryColor,
+        backgroundColor: AppColors.primaryBlue,
         elevation: 0,
         title: Row(
           children: [
@@ -101,7 +101,7 @@ class _LoginScreenState extends State<LoginScreen> {
             child: ElevatedButton(
               onPressed: () => Navigator.pushNamed(context, '/signup'),
               style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.white,
+                backgroundColor: AppColors.softOrange,
                 foregroundColor: Colors.black,
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(20),
@@ -159,9 +159,9 @@ class _LoginScreenState extends State<LoginScreen> {
 
   Widget _buildLoginBox() {
     return Card(
-      elevation: 6,
+      elevation: 10,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
-      color: Colors.grey[200],
+      color: Colors.blue[50],
       child: Padding(
         padding: const EdgeInsets.all(16.0),
         child: Form(
@@ -176,7 +176,7 @@ class _LoginScreenState extends State<LoginScreen> {
                 style: TextStyle(
                   fontSize: 30,
                   fontWeight: FontWeight.bold,
-                  color: AppColors.textColor,
+                  color: AppColors.text,
                 ),
               ),
               const SizedBox(height: 35),
@@ -184,7 +184,7 @@ class _LoginScreenState extends State<LoginScreen> {
                 controller: _emailController,
                 focusNode: _emailFocusNode,
                 decoration: InputDecoration(
-                  labelText: 'Email',
+                  labelText: 'Email/ Username',
                   labelStyle: const TextStyle(color: Colors.black87),
                   filled: true,
                   fillColor: Colors.white,
@@ -193,14 +193,12 @@ class _LoginScreenState extends State<LoginScreen> {
                   ),
                   enabledBorder: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(8.0),
-                    borderSide: const BorderSide(
-                      color: AppColors.unselectedColor,
-                    ),
+                    borderSide: const BorderSide(color: AppColors.primaryBlue),
                   ),
                   focusedBorder: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(8.0),
                     borderSide: const BorderSide(
-                      color: AppColors.primaryColor,
+                      color: AppColors.primaryBlue,
                       width: 2,
                     ),
                   ),
@@ -230,14 +228,12 @@ class _LoginScreenState extends State<LoginScreen> {
                   ),
                   enabledBorder: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(8.0),
-                    borderSide: const BorderSide(
-                      color: AppColors.unselectedColor,
-                    ),
+                    borderSide: const BorderSide(color: AppColors.primaryBlue),
                   ),
                   focusedBorder: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(8.0),
                     borderSide: const BorderSide(
-                      color: AppColors.primaryColor,
+                      color: AppColors.primaryBlue,
                       width: 2,
                     ),
                   ),
@@ -271,8 +267,8 @@ class _LoginScreenState extends State<LoginScreen> {
                     'Forgot Password?',
                     style: TextStyle(
                       decoration: TextDecoration.underline,
-                      decorationColor: AppColors.primaryColor,
-                      color: AppColors.primaryColor,
+                      decorationColor: AppColors.primaryBlue,
+                      color: AppColors.primaryBlue,
                     ),
                   ),
                 ),
@@ -283,7 +279,7 @@ class _LoginScreenState extends State<LoginScreen> {
                 child: ElevatedButton(
                   onPressed: _isLoading ? null : _login,
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: AppColors.welcomeScreenButton,
+                    backgroundColor: AppColors.accentOrange,
                   ),
                   child:
                       _isLoading

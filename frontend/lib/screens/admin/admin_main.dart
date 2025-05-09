@@ -5,6 +5,7 @@ import '../../widgets/logout_dialog.dart';
 import 'admin_units.dart';
 import 'admin_lessons.dart';
 import 'admin_signs.dart';
+import 'admin_dashboard.dart';
 
 class AdminMainScreen extends StatefulWidget {
   const AdminMainScreen({super.key});
@@ -17,12 +18,13 @@ class _AdminMainScreenState extends State<AdminMainScreen> {
   int _selectedIndex = 0;
 
   final List<Widget> _screens = const [
+    AdminDashboardTab(),
     AdminUnitsTab(),
     AdminLessonsTab(),
     AdminSignsTab(),
   ];
 
-  final List<String> _titles = ['Units', 'Lessons', 'Signs'];
+  final List<String> _titles = ['Dashboard', 'Units', 'Lessons', 'Signs'];
 
   @override
   Widget build(BuildContext context) {
@@ -32,15 +34,16 @@ class _AdminMainScreenState extends State<AdminMainScreen> {
           // Collapsed Sidebar
           Container(
             width: 85,
-            color: AppColors.primaryColor,
+            color: AppColors.primaryBlue,
             child: Column(
               children: [
                 const SizedBox(height: 20),
                 Center(child: Image.asset('assets/images/LOGO.png', width: 50)),
                 const SizedBox(height: 20),
-                _buildSidebarItem(0, Icons.view_module, 'Units'),
-                _buildSidebarItem(1, Icons.school, 'Lessons'),
-                _buildSidebarItem(2, Icons.video_library, 'Signs'),
+                _buildSidebarItem(0, Icons.view_module, 'Dashboard'),
+                _buildSidebarItem(1, Icons.view_module, 'Units'),
+                _buildSidebarItem(2, Icons.school, 'Lessons'),
+                _buildSidebarItem(3, Icons.video_library, 'Signs'),
                 const Spacer(),
                 GestureDetector(
                   onTap: () async {
@@ -59,7 +62,7 @@ class _AdminMainScreenState extends State<AdminMainScreen> {
                         ),
                         child: Icon(
                           Icons.logout,
-                          color: AppColors.selectedColor,
+                          color: AppColors.primaryBlue,
                           size: 30,
                         ),
                       ),
@@ -67,7 +70,7 @@ class _AdminMainScreenState extends State<AdminMainScreen> {
                       Text(
                         "Logout",
                         style: TextStyle(
-                          color: AppColors.selectedColor,
+                          color: AppColors.primaryBlue,
                           fontSize: 14,
                           fontWeight: FontWeight.w600,
                         ),
@@ -124,10 +127,7 @@ class _AdminMainScreenState extends State<AdminMainScreen> {
           children: [
             Icon(
               icon,
-              color:
-                  isSelected
-                      ? AppColors.selectedColor
-                      : AppColors.unselectedColor,
+              color: isSelected ? AppColors.primaryBlue : AppColors.card,
               size: 35,
             ),
             const SizedBox(height: 8),
@@ -135,10 +135,7 @@ class _AdminMainScreenState extends State<AdminMainScreen> {
               label,
               textAlign: TextAlign.center,
               style: TextStyle(
-                color:
-                    isSelected
-                        ? AppColors.selectedColor
-                        : AppColors.unselectedColor,
+                color: isSelected ? AppColors.primaryBlue : AppColors.card,
                 fontSize: 16,
                 fontWeight: FontWeight.w600,
               ),

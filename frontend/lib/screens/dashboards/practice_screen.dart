@@ -1,40 +1,33 @@
 import 'package:flutter/material.dart';
 import '../../themes/color.dart';
+import '../dashboards/based_user_scaffold.dart';
 
-class PracticeScreen extends StatefulWidget {
+class PracticeScreen extends StatelessWidget {
   const PracticeScreen({super.key});
 
   @override
-  State<PracticeScreen> createState() => _PracticeScreenState();
-}
-
-class _PracticeScreenState extends State<PracticeScreen> {
-  @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: Colors.white,
-      body: Center(
+    return BaseUserScaffold(
+      child: Center(
         child: Wrap(
           spacing: 20,
           runSpacing: 20,
           alignment: WrapAlignment.center,
           children: [
             _buildPracticeCard(
+              context,
               title: "Game Mode",
               iconPath: "assets/images/game.png",
-              onTap: () {
-                Navigator.pushNamed(context, '/gamemode');
-              },
+              onTap: () => Navigator.pushNamed(context, '/gamemode'),
               color: const Color(0xFF83B100),
               width: 600,
               height: 600,
             ),
             _buildPracticeCard(
+              context,
               title: "Fingerspelling",
               iconPath: "assets/images/fingerspelling.png",
-              onTap: () {
-                Navigator.pushNamed(context, '/fingerspelling');
-              },
+              onTap: () => Navigator.pushNamed(context, '/fingerspelling'),
               color: const Color(0xFF2C3F6D),
               width: 600,
               height: 600,
@@ -45,7 +38,8 @@ class _PracticeScreenState extends State<PracticeScreen> {
     );
   }
 
-  Widget _buildPracticeCard({
+  Widget _buildPracticeCard(
+    BuildContext context, {
     required String title,
     required String iconPath,
     required VoidCallback onTap,
@@ -80,7 +74,7 @@ class _PracticeScreenState extends State<PracticeScreen> {
               style: const TextStyle(
                 fontSize: 32,
                 fontWeight: FontWeight.w600,
-                color: AppColors.textColor,
+                color: AppColors.text,
               ),
             ),
           ],

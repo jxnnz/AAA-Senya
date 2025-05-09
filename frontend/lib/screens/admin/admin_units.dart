@@ -196,7 +196,7 @@ class _AdminUnitsTabState extends State<AdminUnitsTab> {
                         radius: 12,
                         child: Icon(
                           Icons.add,
-                          color: AppColors.primaryColor,
+                          color: AppColors.accentOrange,
                           size: 18,
                         ),
                       ),
@@ -211,7 +211,7 @@ class _AdminUnitsTabState extends State<AdminUnitsTab> {
                         ),
                       ),
                       style: ElevatedButton.styleFrom(
-                        backgroundColor: AppColors.primaryColor,
+                        backgroundColor: AppColors.accentOrange,
                         foregroundColor: Colors.white,
                         padding: const EdgeInsets.symmetric(
                           horizontal: 28,
@@ -236,7 +236,7 @@ class _AdminUnitsTabState extends State<AdminUnitsTab> {
           const SizedBox(height: 30),
 
           // --------- ORANGE DIVIDER ---------
-          Divider(thickness: 3, color: AppColors.primaryColor),
+          Divider(thickness: 3, color: AppColors.primaryBlue),
 
           const Text(
             'Units List',

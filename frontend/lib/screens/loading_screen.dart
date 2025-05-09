@@ -57,7 +57,7 @@ class _LoadingScreenState extends State<LoadingScreen> {
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             const CircularProgressIndicator(
-              color: AppColors.primaryColor,
+              color: AppColors.primaryBlue,
               strokeWidth: 5,
             ),
             const SizedBox(height: 24),
@@ -70,7 +70,7 @@ class _LoadingScreenState extends State<LoadingScreen> {
                 textAlign: TextAlign.center,
                 style: const TextStyle(
                   fontSize: 16,
-                  color: AppColors.textColor,
+                  color: AppColors.text,
                   fontWeight: FontWeight.w500,
                 ),
               ),

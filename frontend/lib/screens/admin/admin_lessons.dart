@@ -24,6 +24,7 @@ class _AdminLessonsTabState extends State<AdminLessonsTab> {
   final TextEditingController _lessonTitleController = TextEditingController();
   final TextEditingController _descriptionController = TextEditingController();
   final TextEditingController _rubiesController = TextEditingController();
+  XFile? _pickedImage;
   String? _imageUrl;
 
   @override
@@ -106,6 +107,38 @@ class _AdminLessonsTabState extends State<AdminLessonsTab> {
     }
   }
 
+  void _confirmDelete(int lessonId) {
+    showDialog(
+      context: context,
+      builder:
+          (context) => AlertDialog(
+            title: const Text('Confirm Deletion'),
+            content: const Text('Are you sure you want to delete this lesson?'),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.of(context).pop(), // Cancel
+                child: const Text('Cancel'),
+              ),
+              ElevatedButton.icon(
+                icon: const Icon(Icons.delete),
+                label: const Text('Delete'),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.red,
+                  foregroundColor: Colors.white,
+                ),
+                onPressed: () async {
+                  Navigator.of(context).pop(); // Close dialog
+                  await _deleteLesson(lessonId); // Run archive
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text('Lesson archived')),
+                  );
+                },
+              ),
+            ],
+          ),
+    );
+  }
+
   void _editLesson(Map<String, dynamic> lesson) {
     setState(() {
       _editingLessonId = lesson['id'];
@@ -137,7 +170,7 @@ class _AdminLessonsTabState extends State<AdminLessonsTab> {
           (context) => AlertDialog(
             contentPadding: const EdgeInsets.all(16),
             content: SizedBox(
-              height: isMobile ? null : 500,
+              height: isMobile ? null : 550,
               width: isMobile ? double.infinity : 1000,
               child: SingleChildScrollView(
                 child: Column(
@@ -173,7 +206,7 @@ class _AdminLessonsTabState extends State<AdminLessonsTab> {
                         ),
                         const Text(
                           'Lesson List',
-                          style: TextStyle(color: AppColors.textColor),
+                          style: TextStyle(color: AppColors.text),
                         ),
                       ],
                     ),
@@ -212,15 +245,15 @@ class _AdminLessonsTabState extends State<AdminLessonsTab> {
                           },
                           child: const Text(
                             'Cancel',
-                            style: TextStyle(color: AppColors.textColor),
+                            style: TextStyle(color: AppColors.text),
                           ),
                         ),
                         const SizedBox(width: 10),
                         ElevatedButton(
                           onPressed: _submitLesson,
                           style: ElevatedButton.styleFrom(
-                            backgroundColor: AppColors.primaryColor,
-                            foregroundColor: AppColors.textColor,
+                            backgroundColor: AppColors.accentOrange,
+                            foregroundColor: AppColors.text,
                           ),
                           child: Text(
                             _editingLessonId != null ? 'Update' : 'Add',
@@ -293,53 +326,83 @@ class _AdminLessonsTabState extends State<AdminLessonsTab> {
 
   Widget _lessonImageCard() {
     return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Container(
-          height: 200,
-          decoration: BoxDecoration(
-            border: Border.all(color: Colors.grey),
-            borderRadius: BorderRadius.circular(8),
-          ),
-          child:
-              _imageUrl != null
-                  ? Image.network(_imageUrl!)
-                  : const Center(
-                    child: Text(
-                      'Click to upload image',
-                      style: TextStyle(color: Colors.grey),
+        const Text(
+          "Lesson Image",
+          style: TextStyle(fontWeight: FontWeight.bold),
+        ),
+        const SizedBox(height: 8),
+        GestureDetector(
+          onTap: _pickAndUploadImage,
+          child: Container(
+            height: 200,
+            decoration: BoxDecoration(
+              border: Border.all(color: Colors.grey),
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child:
+                _imageUrl != null
+                    ? ClipRRect(
+                      borderRadius: BorderRadius.circular(8),
+                      child: Image.network(
+                        'http://localhost:8000$_imageUrl',
+                        fit: BoxFit.cover,
+                        width: double.infinity,
+                      ),
+                    )
+                    : const Center(
+                      child: Text(
+                        'Click to upload image',
+                        style: TextStyle(color: Colors.grey),
+                      ),
                     ),
-                  ),
+          ),
         ),
         const SizedBox(height: 10),
         ElevatedButton.icon(
-          onPressed: () async {
-            final ImagePicker picker = ImagePicker();
-            final XFile? picked = await picker.pickImage(
-              source: ImageSource.gallery,
-            );
-
-            if (picked != null && _editingLessonId != null) {
-              final AdminLessonService _lessonService = AdminLessonService();
-
-              final imageUrl = await _lessonService.uploadLessonImage(
-                _editingLessonId!,
-                picked,
-              );
-
-              setState(() {
-                _imageUrl = imageUrl;
-              });
-            }
-          },
+          onPressed: _pickAndUploadImage,
           icon: const Icon(Icons.upload, color: Colors.red),
           label: const Text(
             "Upload Image",
-            style: TextStyle(color: AppColors.textColor),
+            style: TextStyle(color: AppColors.text),
           ),
           style: ElevatedButton.styleFrom(backgroundColor: Colors.orange[50]),
         ),
       ],
     );
+  }
+
+  void _pickAndUploadImage() async {
+    final picker = ImagePicker();
+    final XFile? picked = await picker.pickImage(source: ImageSource.gallery);
+
+    if (picked != null && _editingLessonId != null) {
+      try {
+        final AdminLessonService _lessonService = AdminLessonService();
+        final uploadedUrl = await _lessonService.uploadLessonImage(
+          _editingLessonId!,
+          picked,
+        );
+
+        setState(() {
+          _imageUrl = uploadedUrl;
+        });
+
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Image uploaded successfully!')),
+        );
+      } catch (e) {
+        debugPrint('Image upload failed: $e');
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(const SnackBar(content: Text('Failed to upload image')));
+      }
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Please save the lesson first')),
+      );
+    }
   }
 
   @override
@@ -354,14 +417,14 @@ class _AdminLessonsTabState extends State<AdminLessonsTab> {
             icon: CircleAvatar(
               backgroundColor: Colors.white,
               radius: 12,
-              child: Icon(Icons.add, size: 18, color: AppColors.primaryColor),
+              child: Icon(Icons.add, size: 18, color: AppColors.accentOrange),
             ),
             label: const Text(
               'Add Lesson',
               style: TextStyle(color: Colors.black),
             ),
             style: ElevatedButton.styleFrom(
-              backgroundColor: AppColors.primaryColor,
+              backgroundColor: AppColors.accentOrange,
               foregroundColor: Colors.black,
               padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
               shape: RoundedRectangleBorder(
@@ -373,24 +436,35 @@ class _AdminLessonsTabState extends State<AdminLessonsTab> {
           const SizedBox(height: 20),
           Expanded(
             child: SingleChildScrollView(
-              scrollDirection:
-                  Axis.vertical, // 🔁 Enables vertical scrolling if needed
+              scrollDirection: Axis.vertical,
               child: SingleChildScrollView(
                 scrollDirection: Axis.horizontal,
                 child: DataTable(
-                  dataRowMaxHeight:
-                      double
-                          .infinity, // ✅ Allow row height to expand based on content
+                  dataRowMaxHeight: double.infinity,
                   columns: const [
                     DataColumn(label: Text('Lesson No.')),
                     DataColumn(label: Text('Lesson Title')),
                     DataColumn(label: Text('Unit')),
                     DataColumn(label: Text('Lesson Description')),
+                    DataColumn(label: Text('Rubies')),
+                    DataColumn(label: Text('Image')),
                     DataColumn(label: Text('Actions')),
                   ],
                   rows:
-                      _lessons.map((lesson) {
+                      _lessons.asMap().entries.map((entry) {
+                        final index = entry.key;
+                        final lesson = entry.value;
+
+                        // Cycle through 3 greys
+                        final rowColor =
+                            index % 3 == 0
+                                ? Colors.grey[100]
+                                : index % 3 == 1
+                                ? Colors.grey[200]
+                                : Colors.grey[300];
+
                         return DataRow(
+                          color: WidgetStateProperty.all(rowColor),
                           cells: [
                             DataCell(Text(lesson['order_index'].toString())),
                             DataCell(Text(lesson['title'] ?? '')),
@@ -404,7 +478,6 @@ class _AdminLessonsTabState extends State<AdminLessonsTab> {
                             ),
                             DataCell(
                               ConstrainedBox(
-                                // 📦 Allows flexible height
                                 constraints: const BoxConstraints(
                                   maxWidth: 250,
                                 ),
@@ -415,6 +488,20 @@ class _AdminLessonsTabState extends State<AdminLessonsTab> {
                                   overflow: TextOverflow.visible,
                                 ),
                               ),
+                            ),
+                            DataCell(
+                              Text(lesson['rubies_reward']?.toString() ?? '0'),
+                            ),
+                            DataCell(
+                              (lesson['image_url'] != null &&
+                                      lesson['image_url'].toString().isNotEmpty)
+                                  ? Image.network(
+                                    'http://localhost:8000${lesson['image_url']}',
+                                    width: 60,
+                                    height: 60,
+                                    fit: BoxFit.cover,
+                                  )
+                                  : const Text('No Image'),
                             ),
                             DataCell(
                               Row(
@@ -432,7 +519,7 @@ class _AdminLessonsTabState extends State<AdminLessonsTab> {
                                       color: Colors.red,
                                     ),
                                     onPressed:
-                                        () => _deleteLesson(lesson['id']),
+                                        () => _confirmDelete(lesson['id']),
                                   ),
                                 ],
                               ),

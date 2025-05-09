@@ -127,7 +127,7 @@ LESSON_IMAGE_DIR = Path("static/images/lessons")
 os.makedirs(LESSON_IMAGE_DIR, exist_ok=True)
 LESSON_IMAGE_BASE = "/static/images/lessons"
 
-@router.post("/{lesson_id}/upload-image", summary="Upload Lesson Image")
+@router.post("/{lesson_id}/upload-image")
 async def upload_lesson_image(
     lesson_id: int,
     file: UploadFile = File(...),
@@ -157,7 +157,7 @@ async def upload_lesson_image(
     finally:
         file.file.close()
 
-    # Save the image URL in the database
+    # Save path to DB
     lesson.image_url = f"{LESSON_IMAGE_BASE}/{lesson_id}/{filename}"
     await db.commit()
     await db.refresh(lesson)

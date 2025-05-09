@@ -1,225 +1,176 @@
-// heart_shop.dart
+// 🛒 HeartShopWidget.dart
 import 'package:flutter/material.dart';
-import '../themes/color.dart';
-import 'package:confetti/confetti.dart';
-import 'dart:math';
-import 'package:flutter_animate/flutter_animate.dart';
-import '../services/api_service.dart';
-import 'dart:convert';
+import 'package:lottie/lottie.dart';
+import '../../services/api_service.dart';
+import '../../themes/color.dart';
 
 class HeartShop extends StatefulWidget {
-  final bool isDialog;
   final int userId;
+  final bool isDialog;
 
-  const HeartShop({super.key, required this.isDialog, required this.userId});
+  const HeartShop({super.key, required this.userId, this.isDialog = false});
 
   @override
   State<HeartShop> createState() => _HeartShopState();
 }
 
 class _HeartShopState extends State<HeartShop> {
-  late ConfettiController _confettiController;
-  bool _isLoading = true;
+  final ApiService _apiService = ApiService();
   List<dynamic> _packages = [];
   int _rubies = 0;
   int _hearts = 0;
+  bool _loading = true;
+  bool _purchasing = false;
 
   @override
   void initState() {
     super.initState();
-    _confettiController = ConfettiController(
-      duration: const Duration(seconds: 2),
-    );
-    _loadData();
+    _loadShopData();
   }
 
-  Future<void> _loadData() async {
-    final api = ApiService();
-    try {
-      final userRes = await api.get('/profile/${widget.userId}');
-      final user = jsonDecode(userRes.body);
-
-      final packages = await api.getHeartPackages();
-
+  Future<void> _loadShopData() async {
+    final status = await _apiService.getUserProfile(widget.userId);
+    final packages = await _apiService.getHeartPackages();
+    if (mounted) {
       setState(() {
-        _rubies = user['profile']['rubies'] ?? 0;
-        _hearts = user['profile']['hearts'] ?? 0;
+        _rubies = status['rubies'];
+        _hearts = status['hearts'];
         _packages = packages;
-        _isLoading = false;
+        _loading = false;
       });
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text('Failed to load shop: $e')));
-      }
     }
   }
 
-  Future<void> _confirmPurchase(Map<String, dynamic> package) async {
-    final confirmed = await showDialog<bool>(
+  Future<void> _purchase(int packageId) async {
+    setState(() => _purchasing = true);
+    final response = await _apiService.purchaseHearts(widget.userId, packageId);
+    if (mounted) {
+      setState(() {
+        _rubies = response['rubies'];
+        _hearts = response['hearts'];
+        _purchasing = false;
+      });
+      _showSuccessDialog();
+    }
+  }
+
+  void _showSuccessDialog() {
+    showDialog(
       context: context,
       builder:
           (_) => AlertDialog(
-            title: const Text('Confirm Purchase'),
-            content: Text(
-              'Buy ${package['hearts_amount']} hearts for ${package['ruby_cost']} rubies?',
+            title: const Text('Purchase Successful'),
+            content: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Lottie.asset('assets/lottie/confetti.json', repeat: false),
+                const Text("Hearts added to your account!"),
+              ],
             ),
             actions: [
               TextButton(
-                onPressed: () => Navigator.pop(context, false),
-                child: const Text('Cancel'),
-              ),
-              ElevatedButton(
-                onPressed: () => Navigator.pop(context, true),
-                child: const Text('Buy'),
+                onPressed: () => Navigator.pop(context),
+                child: const Text("OK"),
               ),
             ],
           ),
     );
-
-    if (confirmed == true) {
-      try {
-        final api = ApiService();
-        final result = await api.purchaseHearts(widget.userId, package['id']);
-        setState(() {
-          _rubies = result['rubies'];
-          _hearts = result['hearts'];
-        });
-        _confettiController.play();
-      } catch (e) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text('Purchase failed: $e')));
-      }
-    }
-  }
-
-  @override
-  void dispose() {
-    _confettiController.dispose();
-    super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
-    final content =
-        _isLoading
+    final shopContent =
+        _loading
             ? const Center(child: CircularProgressIndicator())
             : Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // Header showing user balance
-                Padding(
-                  padding: const EdgeInsets.all(16.0),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Icon(Icons.favorite, color: Colors.red[300]),
-                      const SizedBox(width: 4),
-                      Text(
-                        '$_hearts',
-                        style: const TextStyle(
-                          fontSize: 18,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                      const SizedBox(width: 16),
-                      Image.asset('assets/images/ruby.png', height: 24),
-                      const SizedBox(width: 4),
-                      Text(
-                        '$_rubies',
-                        style: const TextStyle(
-                          fontSize: 18,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                    ],
-                  ),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Text(
+                      "Hearts: $_hearts ❤️",
+                      style: const TextStyle(fontSize: 18),
+                    ),
+                    Text(
+                      "Rubies: $_rubies 💎",
+                      style: const TextStyle(fontSize: 18),
+                    ),
+                  ],
                 ),
-                const Divider(),
+                const SizedBox(height: 16),
                 Expanded(
-                  child: GridView.count(
-                    crossAxisCount: widget.isDialog ? 2 : 3,
-                    padding: const EdgeInsets.all(16.0),
-                    crossAxisSpacing: 16,
-                    mainAxisSpacing: 16,
-                    children:
-                        _packages.map((pkg) {
-                          return GestureDetector(
-                            onTap: () => _confirmPurchase(pkg),
-                            child: AnimatedContainer(
-                              duration: const Duration(milliseconds: 300),
-                              decoration: BoxDecoration(
-                                borderRadius: BorderRadius.circular(16),
-                                color: Colors.pink[50],
-                                boxShadow: [
-                                  BoxShadow(
-                                    color: Colors.pink.withOpacity(0.2),
-                                    blurRadius: 8,
-                                    offset: const Offset(2, 2),
-                                  ),
-                                ],
+                  child: GridView.builder(
+                    gridDelegate:
+                        const SliverGridDelegateWithFixedCrossAxisCount(
+                          crossAxisCount: 2,
+                          childAspectRatio: 1.2,
+                          crossAxisSpacing: 10,
+                          mainAxisSpacing: 10,
+                        ),
+                    itemCount: _packages.length,
+                    itemBuilder: (_, i) {
+                      final pkg = _packages[i];
+                      return Card(
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(20),
+                        ),
+                        color: AppColors.primaryBlue.withOpacity(0.1),
+                        child: Padding(
+                          padding: const EdgeInsets.all(12.0),
+                          child: Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Text(
+                                "${pkg['hearts_amount']} ❤️",
+                                style: const TextStyle(
+                                  fontSize: 22,
+                                  fontWeight: FontWeight.bold,
+                                ),
                               ),
-                              padding: const EdgeInsets.all(12),
-                              child: Column(
-                                mainAxisAlignment: MainAxisAlignment.center,
-                                children: [
-                                  Icon(
-                                    Icons.favorite,
-                                    color: Colors.red,
-                                    size: 40,
-                                  ).animate().scale(),
-                                  const SizedBox(height: 8),
-                                  Text(
-                                    '+${pkg['hearts_amount']} Hearts',
-                                    style: const TextStyle(
-                                      fontWeight: FontWeight.bold,
-                                      fontSize: 16,
-                                    ),
-                                  ),
-                                  const SizedBox(height: 4),
-                                  Row(
-                                    mainAxisAlignment: MainAxisAlignment.center,
-                                    children: [
-                                      Image.asset(
-                                        'assets/images/ruby.png',
-                                        height: 20,
-                                      ),
-                                      const SizedBox(width: 4),
-                                      Text(
-                                        '${pkg['ruby_cost']}',
-                                        style: const TextStyle(fontSize: 14),
-                                      ),
-                                    ],
-                                  ),
-                                ],
+                              const SizedBox(height: 8),
+                              Text(
+                                "${pkg['ruby_cost']} 💎",
+                                style: const TextStyle(fontSize: 16),
                               ),
-                            ),
-                          );
-                        }).toList(),
+                              const SizedBox(height: 12),
+                              ElevatedButton(
+                                onPressed:
+                                    _purchasing
+                                        ? null
+                                        : () => _purchase(pkg['id']),
+                                child: const Text("Buy"),
+                              ),
+                            ],
+                          ),
+                        ),
+                      );
+                    },
                   ),
                 ),
               ],
             );
 
-    return Stack(
-      alignment: Alignment.center,
-      children: [
-        widget.isDialog
-            ? Dialog(child: SizedBox(width: 300, height: 400, child: content))
-            : Scaffold(
-              appBar: AppBar(title: const Text('Heart Shop')),
-              body: SafeArea(child: content),
+    return widget.isDialog
+        ? Dialog(
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+          ),
+          child: SizedBox(
+            width: 400,
+            height: 400,
+            child: Padding(
+              padding: const EdgeInsets.all(16.0),
+              child: shopContent,
             ),
-        ConfettiWidget(
-          confettiController: _confettiController,
-          blastDirection: pi / 2,
-          emissionFrequency: 0.08,
-          numberOfParticles: 20,
-          gravity: 0.4,
-          shouldLoop: false,
-        ),
-      ],
-    );
+          ),
+        )
+        : Scaffold(
+          appBar: AppBar(title: const Text("Heart Shop")),
+          body: Padding(
+            padding: const EdgeInsets.all(16.0),
+            child: shopContent,
+          ),
+        );
   }
 }

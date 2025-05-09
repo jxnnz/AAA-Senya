@@ -7,11 +7,26 @@ from app import models
 from app.db import engine
 import os
 from pathlib import Path
+from fastapi.staticfiles import StaticFiles
+from app.routes import admin_dashboard
+from app.routes import user_content_routes
+from app.routes.quiz_routes import router as quiz_router
+
 
 
 app = FastAPI(title="Senya Sign Language App")
 
 from app.routes import ( practice_routes, auth_routes, lessons_routes, shop_routes, profile_routes, admin_units, admin_lessons, admin_signs, user_routes, recognition_routes )
+app.include_router(user_content_routes.router, prefix="/api/lessons", tags=["Lessons"])
+app.include_router(quiz_router, prefix="/api")
+
+
+app.mount("/static", StaticFiles(directory="static"), name="static")
+app.include_router(
+    admin_dashboard.router,
+    prefix="/api/admin/dashboard",
+    tags=["Admin Dashboard"]
+)
 
 
 app.add_middleware(

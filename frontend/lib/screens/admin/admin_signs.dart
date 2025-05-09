@@ -232,7 +232,7 @@ class _AdminSignsTabState extends State<AdminSignsTab> {
             ElevatedButton(
               onPressed: _submitSign,
               style: ElevatedButton.styleFrom(
-                backgroundColor: AppColors.primaryColor,
+                backgroundColor: AppColors.accentOrange,
                 padding: const EdgeInsets.symmetric(
                   horizontal: 30,
                   vertical: 12,
@@ -296,7 +296,7 @@ class _AdminSignsTabState extends State<AdminSignsTab> {
             height: 150,
             width: 300,
             decoration: BoxDecoration(
-              border: Border.all(color: AppColors.primaryColor, width: 2),
+              border: Border.all(color: AppColors.primaryBlue, width: 2),
               borderRadius: BorderRadius.circular(8),
             ),
             child: const Center(
@@ -362,7 +362,7 @@ class _AdminSignsTabState extends State<AdminSignsTab> {
               style: TextStyle(color: Colors.black),
             ),
             style: ElevatedButton.styleFrom(
-              backgroundColor: AppColors.primaryColor,
+              backgroundColor: AppColors.accentOrange,
               padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
             ),
           ),

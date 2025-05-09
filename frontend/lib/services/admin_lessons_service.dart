@@ -2,6 +2,9 @@ import 'dart:convert';
 import 'package:http/http.dart' as http;
 import 'package:image_picker/image_picker.dart';
 import 'api_service.dart';
+import 'dart:typed_data';
+import 'package:flutter/foundation.dart';
+import 'package:http_parser/http_parser.dart';
 
 class AdminLessonService {
   final ApiService _apiService = ApiService();
@@ -74,20 +77,29 @@ class AdminLessonService {
     }
   }
 
-  // 🔼 Upload image and return image_url
   Future<String> uploadLessonImage(int lessonId, XFile imageFile) async {
     final uri = Uri.parse(
       '${ApiService.baseUrl}/admin/lessons/$lessonId/upload-image',
     );
+    final request = http.MultipartRequest('POST', uri);
 
-    final request =
-        http.MultipartRequest('POST', uri)
-          ..headers.addAll(
-            await _apiService.getFormHeaders(),
-          ) // auth only, no content-type
-          ..files.add(
-            await http.MultipartFile.fromPath('file', imageFile.path),
-          );
+    request.headers.addAll(await _apiService.getFormHeaders());
+
+    if (kIsWeb) {
+      final bytes = await imageFile.readAsBytes();
+      request.files.add(
+        http.MultipartFile.fromBytes(
+          'file',
+          bytes,
+          filename: imageFile.name,
+          contentType: MediaType('image', 'jpeg'), // change type if needed
+        ),
+      );
+    } else {
+      request.files.add(
+        await http.MultipartFile.fromPath('file', imageFile.path),
+      );
+    }
 
     final streamedResponse = await request.send();
     final response = await http.Response.fromStream(streamedResponse);

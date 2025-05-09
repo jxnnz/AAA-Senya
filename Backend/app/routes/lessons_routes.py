@@ -182,41 +182,75 @@ async def get_lesson_status(
     db: AsyncSession = Depends(get_db),
     current_user: Account = Depends(get_current_user)
 ):
+    # Get the target lesson
     lesson = (await db.execute(
-        select(Lesson).where(Lesson.id == lesson_id)
+        select(Lesson).where(Lesson.id == lesson_id, Lesson.archived == False)
     )).scalars().first()
     if not lesson:
         raise HTTPException(status_code=404, detail="Lesson not found")
 
-    first_lesson = (await db.execute(
-        select(Lesson)
-        .where(Lesson.unit_id == lesson.unit_id)
-        .order_by(Lesson.order_index)
-        .limit(1)
-    )).scalars().first()
-    if first_lesson and first_lesson.id == lesson_id:
+    # If it's Unit 1 - Lesson 1, unlock it
+    if lesson.unit_id == 1 and lesson.order_index == 0:
         return {"is_locked": False}
 
-    prev = (await db.execute(
+    # Get all lessons in the same unit ordered
+    prev_lesson = (await db.execute(
         select(Lesson)
         .where(
             Lesson.unit_id == lesson.unit_id,
-            Lesson.order_index < lesson.order_index
+            Lesson.order_index < lesson.order_index,
+            Lesson.archived == False
         )
         .order_by(Lesson.order_index.desc())
         .limit(1)
     )).scalars().first()
-    if not prev:
+
+    # Case A: it's not the first lesson in unit, check if previous lesson is complete
+    if prev_lesson:
+        progress = (await db.execute(
+            select(UserProgress)
+            .where(
+                UserProgress.user_id == user_id,
+                UserProgress.lesson_id == prev_lesson.id
+            )
+        )).scalars().first()
+        return {"is_locked": not (progress and progress.completed)}
+
+    # Case B: it's the first lesson in unit, so check if previous unit is complete
+    current_unit = (await db.execute(
+        select(Unit).where(Unit.id == lesson.unit_id)
+    )).scalars().first()
+
+    previous_unit = (await db.execute(
+        select(Unit)
+        .where(Unit.order_index < current_unit.order_index)
+        .order_by(Unit.order_index.desc())
+        .limit(1)
+    )).scalars().first()
+
+    if not previous_unit:
         return {"is_locked": False}
 
-    prog = (await db.execute(
-        select(UserProgress)
+    prev_lessons = (await db.execute(
+        select(Lesson)
         .where(
-            UserProgress.user_id == user_id,
-            UserProgress.lesson_id == prev.id
+            Lesson.unit_id == previous_unit.id,
+            Lesson.archived == False
         )
-    )).scalars().first()
-    return {"is_locked": not (prog and prog.completed)}
+    )).scalars().all()
+
+    for l in prev_lessons:
+        p = (await db.execute(
+            select(UserProgress).where(
+                UserProgress.user_id == user_id,
+                UserProgress.lesson_id == l.id
+            )
+        )).scalars().first()
+        if not p or not p.completed:
+            return {"is_locked": True}
+
+    return {"is_locked": False}
+
 
 from datetime import datetime, timedelta
 from fastapi import HTTPException

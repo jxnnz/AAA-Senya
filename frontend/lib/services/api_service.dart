@@ -11,7 +11,7 @@ class ApiService {
   // Public token/user access
   Future<String?> getToken() async {
     final prefs = await SharedPreferences.getInstance();
-    return prefs.getString('token');
+    return prefs.getString('access_token');
   }
 
   Future<int?> getUserId() async {
@@ -24,7 +24,7 @@ class ApiService {
     return prefs.getString('user_role');
   }
 
-  Future<Map<String, String>> _getHeaders() async {
+  Future<Map<String, String>> getHeaders() async {
     final token = await getToken();
     return {
       'Content-Type': 'application/json',
@@ -39,7 +39,7 @@ class ApiService {
 
   Future<http.Response> get(String endpoint) async {
     try {
-      final headers = await _getHeaders();
+      final headers = await getHeaders();
       final response = await http.get(_buildUri(endpoint), headers: headers);
       return _handleResponse(response);
     } catch (e) {
@@ -50,7 +50,7 @@ class ApiService {
 
   Future<http.Response> post(String endpoint, Map<String, dynamic> data) async {
     try {
-      final headers = await _getHeaders();
+      final headers = await getHeaders();
       final response = await http.post(
         _buildUri(endpoint),
         headers: headers,
@@ -68,7 +68,7 @@ class ApiService {
     Map<String, dynamic> data,
   ) async {
     try {
-      final headers = await _getHeaders();
+      final headers = await getHeaders();
       final response = await http.patch(
         _buildUri(endpoint),
         headers: headers,
@@ -83,7 +83,7 @@ class ApiService {
 
   Future<http.Response> put(String endpoint, Map<String, dynamic> data) async {
     try {
-      final headers = await _getHeaders();
+      final headers = await getHeaders();
       final response = await http.put(
         _buildUri(endpoint),
         headers: headers,
@@ -98,7 +98,7 @@ class ApiService {
 
   Future<http.Response> delete(String endpoint) async {
     try {
-      final headers = await _getHeaders();
+      final headers = await getHeaders();
       final response = await http.delete(_buildUri(endpoint), headers: headers);
       return _handleResponse(response);
     } catch (e) {
@@ -140,6 +140,38 @@ class ApiService {
       'user_id': userId,
       'package_id': packageId,
     });
+    return jsonDecode(response.body);
+  }
+
+  Future<Map<String, dynamic>> getUserProfile(int userId) async {
+    final response = await get('/profile/$userId');
+    final data = jsonDecode(response.body);
+    return {
+      'rubies': data['profile']['rubies'],
+      'hearts': data['profile']['hearts'],
+    };
+  }
+
+  Future<List<dynamic>> fetchGeneratedQuiz(int lessonId) async {
+    final token = await getToken(); // ✅ your bearer token
+    final response = await http.get(
+      Uri.parse('$baseUrl/quiz/generate/$lessonId'),
+      headers: {
+        'Authorization': 'Bearer $token',
+        'Content-Type': 'application/json',
+      },
+    );
+
+    if (response.statusCode == 200) {
+      return jsonDecode(response.body);
+    } else {
+      throw Exception('Failed to fetch quiz: ${response.body}');
+    }
+  }
+
+  Future<Map<String, dynamic>> getUserStatus() async {
+    final userId = await getUserId();
+    final response = await get('/status/$userId');
     return jsonDecode(response.body);
   }
 }

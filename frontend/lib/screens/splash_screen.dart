@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'dart:async';
 import 'package:shared_preferences/shared_preferences.dart';
+import '../themes/color.dart'; // Import AppColors
 
 class LogoScreen extends StatefulWidget {
   const LogoScreen({super.key});
@@ -21,7 +22,6 @@ class _LogoScreenState extends State<LogoScreen> {
     final token = prefs.getString('access_token');
     final role = prefs.getString('user_role');
 
-    // Delay to show splash
     await Future.delayed(const Duration(seconds: 3));
 
     if (token != null && token.isNotEmpty) {
@@ -40,9 +40,11 @@ class _LogoScreenState extends State<LogoScreen> {
     return Scaffold(
       body: Container(
         decoration: const BoxDecoration(
-          // Apply the radial gradient
           gradient: RadialGradient(
-            colors: [Color(0xFFF7B733), Color(0xFFFF7904)],
+            colors: [
+              AppColors.softOrange, // From center
+              AppColors.accentOrange, // To edge
+            ],
             center: Alignment.center,
             radius: 0.8,
             focal: Alignment.center,
@@ -53,11 +55,7 @@ class _LogoScreenState extends State<LogoScreen> {
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: <Widget>[
-              Image.asset(
-                'assets/images/LOGO.png', // Replace with the actual path to your logo image
-                width: 180, // Adjust the width of the logo
-                height: 180, // Adjust the height of the logo
-              ),
+              Image.asset('assets/images/LOGO.png', width: 180, height: 180),
             ],
           ),
         ),

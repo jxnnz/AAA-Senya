@@ -13,8 +13,7 @@ class WelcomeScreen extends StatelessWidget {
     return Scaffold(
       appBar: AppBar(
         automaticallyImplyLeading: false,
-        backgroundColor:
-            AppColors.welcomeScreenTopBar, // Use color from color.dart
+        backgroundColor: AppColors.primaryBlue, // Use color from color.dart
         elevation: 0,
         title: Row(
           children: [
@@ -48,7 +47,7 @@ class WelcomeScreen extends StatelessWidget {
                   ), // Update login route if needed
               style: ElevatedButton.styleFrom(
                 backgroundColor:
-                    Colors.white, // Keep button background as white
+                    AppColors.accentOrange, // Keep button background as white
                 foregroundColor: Colors.black, // Keep text color as black
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(
@@ -134,7 +133,7 @@ class WelcomeScreen extends StatelessWidget {
                 style: TextStyle(
                   color:
                       AppColors
-                          .primaryColor, // Use primaryColor from color.dart
+                          .accentOrange, // Use primaryColor from color.dart
                 ), // Customize "SENYA" color
               ),
             ],
@@ -151,7 +150,7 @@ class WelcomeScreen extends StatelessWidget {
                 ), // Update signup route if needed
             style: ElevatedButton.styleFrom(
               backgroundColor:
-                  AppColors.welcomeScreenButton, // Use color from color.dart
+                  AppColors.accentOrange, // Use color from color.dart
               padding: const EdgeInsets.symmetric(horizontal: 40, vertical: 15),
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(
@@ -159,7 +158,7 @@ class WelcomeScreen extends StatelessWidget {
                 ), // Adjust button rounding
               ),
             ),
-            child: const Text(
+            child: Text(
               'Get Started', // Edit button text if needed
               style: TextStyle(
                 fontSize: 20,
