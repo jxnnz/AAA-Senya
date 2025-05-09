@@ -30,7 +30,7 @@ class WelcomeScreen extends StatelessWidget {
               'SENYA',
               style: TextStyle(
                 fontWeight: FontWeight.bold,
-                color: Colors.black,
+                color: Colors.white,
                 fontSize: 18,
               ),
             ),
@@ -47,7 +47,7 @@ class WelcomeScreen extends StatelessWidget {
                   ), // Update login route if needed
               style: ElevatedButton.styleFrom(
                 backgroundColor:
-                    AppColors.accentOrange, // Keep button background as white
+                    Colors.white, // Keep button background as white
                 foregroundColor: Colors.black, // Keep text color as black
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(

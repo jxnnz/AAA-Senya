@@ -44,6 +44,7 @@ class _LoadingScreenState extends State<LoadingScreen> {
     Future.delayed(const Duration(seconds: 1), () async {
       if (mounted) {
         await widget.onComplete(context);
+        Navigator.pop(context);
       }
     });
   }

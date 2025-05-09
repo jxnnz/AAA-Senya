@@ -89,7 +89,7 @@ class _LoginScreenState extends State<LoginScreen> {
               'SENYA',
               style: TextStyle(
                 fontWeight: FontWeight.bold,
-                color: Colors.black,
+                color: Colors.white,
                 fontSize: 18,
               ),
             ),
@@ -101,7 +101,7 @@ class _LoginScreenState extends State<LoginScreen> {
             child: ElevatedButton(
               onPressed: () => Navigator.pushNamed(context, '/signup'),
               style: ElevatedButton.styleFrom(
-                backgroundColor: AppColors.softOrange,
+                backgroundColor: Colors.white,
                 foregroundColor: Colors.black,
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(20),
@@ -159,8 +159,15 @@ class _LoginScreenState extends State<LoginScreen> {
 
   Widget _buildLoginBox() {
     return Card(
-      elevation: 10,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+      elevation: 100,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(24),
+        side: BorderSide(
+          color:
+              Colors.lightBlueAccent, // <- change this to any color you want!
+          width: 0.5, // <- thickness of the border
+        ),
+      ),
       color: Colors.blue[50],
       child: Padding(
         padding: const EdgeInsets.all(16.0),

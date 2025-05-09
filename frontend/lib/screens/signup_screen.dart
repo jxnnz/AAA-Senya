@@ -75,7 +75,7 @@ class _SignupScreenState extends State<SignupScreen> {
               'SENYA',
               style: TextStyle(
                 fontWeight: FontWeight.bold,
-                color: Colors.black,
+                color: Colors.white,
                 fontSize: 18,
               ),
             ),
@@ -87,7 +87,7 @@ class _SignupScreenState extends State<SignupScreen> {
             child: ElevatedButton(
               onPressed: () => Navigator.pushNamed(context, '/login'),
               style: ElevatedButton.styleFrom(
-                backgroundColor: AppColors.accentOrange,
+                backgroundColor: Colors.white,
                 foregroundColor: Colors.black,
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(20),
